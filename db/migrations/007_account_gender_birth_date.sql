@@ -1,0 +1,3 @@
+-- Deprecated migration kept intentionally for ordering compatibility.
+-- The columns `app_user.gender` and `app_user.birth_date` are now defined in
+-- `002_schema_core.sql`.

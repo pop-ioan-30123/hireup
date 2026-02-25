@@ -1,4 +1,4 @@
-name: hireup
+name: careersuitup
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -34,6 +34,12 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  google_fonts: ^8.0.2
+  flutter_secure_storage: ^10.0.0
+  animated_text_kit: ^4.3.0
+  file_picker: ^8.1.2
+  http: ^1.2.2
+  http_parser: ^4.0.2
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +62,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/images/careersuitup_promo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

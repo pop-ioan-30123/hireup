@@ -1,0 +1,10 @@
+{
+    "cmake.sourceDirectory": "C:/Users/ionic/Desktop/hireup/windows",
+    "dart.flutterSdkPath": "F:/flutter",
+    "dart.sdkPath": "F:/flutter/bin/cache/dart-sdk",
+    "dart.flutterRunAdditionalArgs": [
+        "--web-renderer",
+        "html"
+    ],
+    "terminal.integrated.defaultProfile.windows": "Command Prompt"
+}

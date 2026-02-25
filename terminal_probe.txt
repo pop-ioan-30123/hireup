@@ -1,0 +1,2 @@
+START 2026-02-24T18:32:59.1757122+02:00
+pwd=C:\Users\ionic\Desktop\hireup

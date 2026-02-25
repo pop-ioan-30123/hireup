@@ -1,0 +1,3 @@
+-- Deprecated migration kept intentionally for ordering compatibility.
+-- The columns `show_gender`, `show_birth_date`, and `show_job_title` are now
+-- defined in `004_profile_visibility_and_avatar.sql`.
