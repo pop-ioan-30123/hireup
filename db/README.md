@@ -15,6 +15,16 @@ Rulare în ordine:
 7. `db/migrations/007_account_gender_birth_date.sql` *(deprecated, no-op)*
 8. `db/migrations/008_profile_visibility_gender_birth_job_title.sql` *(deprecated, no-op)*
 9. `db/migrations/009_reconcile_consolidated_profile_columns.sql` *(compatibility for older DBs)*
+10. `db/migrations/010_user_profile_specialization.sql`
+11. `db/migrations/011_user_profile_summary_status_visibility.sql`
+12. `db/migrations/012_profile_social_links.sql`
+13. `db/migrations/013_profile_experience_and_activity_posts.sql`
+14. `db/migrations/014_activity_post_comments.sql`
+15. `db/migrations/015_profile_education.sql`
+16. `db/migrations/016_profile_education_level_and_account_created_visibility.sql`
+17. `db/migrations/017_profile_skills_and_visibility_per_entry.sql`
+18. `db/migrations/018_activities_marketplace_and_notifications.sql`
+19. `db/migrations/019_enforce_audit_coverage_all_tables.sql`
 
 Exemplu:
 
@@ -28,6 +38,16 @@ psql "$DATABASE_URL" -f db/migrations/006_two_factor_backup_codes.sql
 psql "$DATABASE_URL" -f db/migrations/007_account_gender_birth_date.sql
 psql "$DATABASE_URL" -f db/migrations/008_profile_visibility_gender_birth_job_title.sql
 psql "$DATABASE_URL" -f db/migrations/009_reconcile_consolidated_profile_columns.sql
+psql "$DATABASE_URL" -f db/migrations/010_user_profile_specialization.sql
+psql "$DATABASE_URL" -f db/migrations/011_user_profile_summary_status_visibility.sql
+psql "$DATABASE_URL" -f db/migrations/012_profile_social_links.sql
+psql "$DATABASE_URL" -f db/migrations/013_profile_experience_and_activity_posts.sql
+psql "$DATABASE_URL" -f db/migrations/014_activity_post_comments.sql
+psql "$DATABASE_URL" -f db/migrations/015_profile_education.sql
+psql "$DATABASE_URL" -f db/migrations/016_profile_education_level_and_account_created_visibility.sql
+psql "$DATABASE_URL" -f db/migrations/017_profile_skills_and_visibility_per_entry.sql
+psql "$DATABASE_URL" -f db/migrations/018_activities_marketplace_and_notifications.sql
+psql "$DATABASE_URL" -f db/migrations/019_enforce_audit_coverage_all_tables.sql
 ```
 
 ## Ce acoperă schema

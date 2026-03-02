@@ -57,7 +57,7 @@ let UploadsService = class UploadsService {
         const { file, attachmentType, targetType, userId, userEmail, auditContext } = params;
         const normalizedAttachment = attachmentType.trim();
         const normalizedTarget = targetType.trim();
-        if (!['id_document', 'cv', 'avatar'].includes(normalizedAttachment)) {
+        if (!['id_document', 'cv', 'avatar', 'post_media', 'post_file'].includes(normalizedAttachment)) {
             throw new common_1.BadRequestException('Unsupported attachmentType');
         }
         if (!['user', 'company'].includes(normalizedTarget)) {
@@ -184,6 +184,30 @@ let UploadsService = class UploadsService {
             }
             if (file.size > 5 * 1024 * 1024) {
                 throw new common_1.BadRequestException('Avatar too large');
+            }
+        }
+        if (attachmentType === 'post_media') {
+            const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (!allowed.includes(file.mimetype)) {
+                throw new common_1.BadRequestException('Post media must be an image');
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                throw new common_1.BadRequestException('Post media too large');
+            }
+        }
+        if (attachmentType === 'post_file') {
+            const allowed = [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'text/plain',
+                'application/zip',
+            ];
+            if (!allowed.includes(file.mimetype)) {
+                throw new common_1.BadRequestException('Post file must be PDF/DOC/DOCX/TXT/ZIP');
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                throw new common_1.BadRequestException('Post file too large');
             }
         }
     }

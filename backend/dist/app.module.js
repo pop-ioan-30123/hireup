@@ -15,6 +15,8 @@ const health_controller_1 = require("./health.controller");
 const audit_context_middleware_1 = require("./security/audit-context.middleware");
 const uploads_module_1 = require("./uploads/uploads.module");
 const profile_module_1 = require("./profile/profile.module");
+const activities_module_1 = require("./activities/activities.module");
+const audit_module_1 = require("./audit/audit.module");
 let AppModule = class AppModule {
     configure(consumer) {
         consumer.apply(audit_context_middleware_1.AuditContextMiddleware).forRoutes('*');
@@ -23,7 +25,7 @@ let AppModule = class AppModule {
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [config_1.ConfigModule.forRoot({ isGlobal: true }), database_module_1.DatabaseModule, auth_module_1.AuthModule, uploads_module_1.UploadsModule, profile_module_1.ProfileModule],
+        imports: [config_1.ConfigModule.forRoot({ isGlobal: true }), database_module_1.DatabaseModule, auth_module_1.AuthModule, uploads_module_1.UploadsModule, profile_module_1.ProfileModule, activities_module_1.ActivitiesModule, audit_module_1.AuditModule],
         controllers: [health_controller_1.HealthController],
     })
 ], AppModule);

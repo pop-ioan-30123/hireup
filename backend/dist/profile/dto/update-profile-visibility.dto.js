@@ -28,6 +28,16 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showAccountCreatedDate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showAccountCreatedTime", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
 ], UpdateProfileVisibilityDto.prototype, "showJobTitle", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -68,6 +78,11 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showSpecialization", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
 ], UpdateProfileVisibilityDto.prototype, "showCompanyName", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -99,4 +114,39 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateProfileVisibilityDto.prototype, "showCv", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showProfileSummary", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showProfessionalStatus", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showLinkedIn", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showGithub", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showYoutube", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showInstagram", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateProfileVisibilityDto.prototype, "showTiktok", void 0);
 //# sourceMappingURL=update-profile-visibility.dto.js.map

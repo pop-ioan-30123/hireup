@@ -11,13 +11,19 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LoginDto = void 0;
 const class_validator_1 = require("class-validator");
+const email_validation_message_1 = require("./email-validation-message");
 class LoginDto {
 }
 exports.LoginDto = LoginDto;
 __decorate([
-    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsEmail)({}, { message: email_validation_message_1.invalidEmailFormatMessage }),
     __metadata("design:type", String)
 ], LoginDto.prototype, "email", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LoginDto.prototype, "locale", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.Length)(8, 128),

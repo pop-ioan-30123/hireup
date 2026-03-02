@@ -11,11 +11,17 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CheckEmailDto = void 0;
 const class_validator_1 = require("class-validator");
+const email_validation_message_1 = require("./email-validation-message");
 class CheckEmailDto {
 }
 exports.CheckEmailDto = CheckEmailDto;
 __decorate([
-    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsEmail)({}, { message: email_validation_message_1.invalidEmailFormatMessage }),
     __metadata("design:type", String)
 ], CheckEmailDto.prototype, "email", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CheckEmailDto.prototype, "locale", void 0);
 //# sourceMappingURL=check-email.dto.js.map

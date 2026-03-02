@@ -15,7 +15,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProfileController = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
+const create_activity_post_dto_1 = require("./dto/create-activity-post.dto");
+const create_activity_comment_dto_1 = require("./dto/create-activity-comment.dto");
+const set_user_educations_dto_1 = require("./dto/set-user-educations.dto");
+const set_user_experiences_dto_1 = require("./dto/set-user-experiences.dto");
+const set_user_projects_dto_1 = require("./dto/set-user-projects.dto");
+const set_user_skills_dto_1 = require("./dto/set-user-skills.dto");
 const update_company_profile_dto_1 = require("./dto/update-company-profile.dto");
+const update_activity_post_dto_1 = require("./dto/update-activity-post.dto");
 const update_profile_visibility_dto_1 = require("./dto/update-profile-visibility.dto");
 const update_theme_preference_dto_1 = require("./dto/update-theme-preference.dto");
 const update_user_profile_dto_1 = require("./dto/update-user-profile.dto");
@@ -30,6 +37,24 @@ let ProfileController = class ProfileController {
     async updateUserProfile(req, payload) {
         return this.profileService.updateUserProfile(req.user.id, payload, req.auditContext);
     }
+    async setUserExperiences(req, payload) {
+        return this.profileService.setUserExperiences(req.user.id, payload, req.auditContext);
+    }
+    async setUserEducations(req, payload) {
+        return this.profileService.setUserEducations(req.user.id, payload, req.auditContext);
+    }
+    async setUserSkills(req, payload) {
+        return this.profileService.setUserSkills(req.user.id, payload, req.auditContext);
+    }
+    async setUserProjects(req, payload) {
+        return this.profileService.setUserProjects(req.user.id, payload, req.auditContext);
+    }
+    async searchUsers(req, query, field, page, limit) {
+        return this.profileService.searchUsers(req.user.id, query, field, page, limit);
+    }
+    async getUserProfileById(req, userId) {
+        return this.profileService.getProfileForViewer(req.user.id, userId);
+    }
     async updateCompanyProfile(req, payload) {
         return this.profileService.updateCompanyProfile(req.user.id, payload, req.auditContext);
     }
@@ -38,6 +63,18 @@ let ProfileController = class ProfileController {
     }
     async updateThemePreference(req, payload) {
         return this.profileService.updateThemePreference(req.user.id, payload, req.auditContext);
+    }
+    async createActivityPost(req, payload) {
+        return this.profileService.createActivityPost(req.user.id, payload, req.auditContext);
+    }
+    async updateActivityPost(req, postId, payload) {
+        return this.profileService.updateActivityPost(req.user.id, postId, payload, req.auditContext);
+    }
+    async deleteActivityPost(req, postId) {
+        return this.profileService.deleteActivityPost(req.user.id, postId, req.auditContext);
+    }
+    async createActivityComment(req, postId, payload) {
+        return this.profileService.createActivityComment(req.user.id, postId, payload, req.auditContext);
     }
     async getAvatar(req) {
         const avatar = await this.profileService.getAvatar(req.user.id);
@@ -71,6 +108,63 @@ __decorate([
 ], ProfileController.prototype, "updateUserProfile", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Put)('user/experiences'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, set_user_experiences_dto_1.SetUserExperiencesDto]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "setUserExperiences", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Put)('user/educations'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, set_user_educations_dto_1.SetUserEducationsDto]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "setUserEducations", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Put)('user/skills'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, set_user_skills_dto_1.SetUserSkillsDto]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "setUserSkills", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Put)('user/projects'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, set_user_projects_dto_1.SetUserProjectsDto]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "setUserProjects", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Get)('search/users'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('q', new common_1.DefaultValuePipe(''))),
+    __param(2, (0, common_1.Query)('field', new common_1.DefaultValuePipe('all'))),
+    __param(3, (0, common_1.Query)('page', new common_1.DefaultValuePipe(1), common_1.ParseIntPipe)),
+    __param(4, (0, common_1.Query)('limit', new common_1.DefaultValuePipe(20), common_1.ParseIntPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String, Number, Number]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "searchUsers", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Get)('users/:userId'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('userId', new common_1.ParseUUIDPipe())),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "getUserProfileById", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Patch)('company'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
@@ -96,6 +190,44 @@ __decorate([
     __metadata("design:paramtypes", [Object, update_theme_preference_dto_1.UpdateThemePreferenceDto]),
     __metadata("design:returntype", Promise)
 ], ProfileController.prototype, "updateThemePreference", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)('activity-posts'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, create_activity_post_dto_1.CreateActivityPostDto]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "createActivityPost", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Patch)('activity-posts/:postId'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('postId', new common_1.ParseUUIDPipe())),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, update_activity_post_dto_1.UpdateActivityPostDto]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "updateActivityPost", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Delete)('activity-posts/:postId'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('postId', new common_1.ParseUUIDPipe())),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "deleteActivityPost", null);
+__decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)('activity-posts/:postId/comments'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('postId', new common_1.ParseUUIDPipe())),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, create_activity_comment_dto_1.CreateActivityCommentDto]),
+    __metadata("design:returntype", Promise)
+], ProfileController.prototype, "createActivityComment", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Get)('avatar'),

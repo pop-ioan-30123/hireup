@@ -11,11 +11,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RegisterCompanyDto = void 0;
 const class_validator_1 = require("class-validator");
+const email_validation_message_1 = require("./email-validation-message");
 class RegisterCompanyDto {
 }
 exports.RegisterCompanyDto = RegisterCompanyDto;
 __decorate([
-    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsEmail)({}, { message: email_validation_message_1.invalidEmailFormatMessage }),
     __metadata("design:type", String)
 ], RegisterCompanyDto.prototype, "email", void 0);
 __decorate([
@@ -54,7 +55,7 @@ __decorate([
     __metadata("design:type", String)
 ], RegisterCompanyDto.prototype, "hrLastName", void 0);
 __decorate([
-    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsEmail)({}, { message: email_validation_message_1.invalidEmailFormatMessage }),
     __metadata("design:type", String)
 ], RegisterCompanyDto.prototype, "hrEmail", void 0);
 __decorate([
@@ -62,6 +63,7 @@ __decorate([
     __metadata("design:type", String)
 ], RegisterCompanyDto.prototype, "gender", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], RegisterCompanyDto.prototype, "birthDate", void 0);

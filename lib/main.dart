@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:google_fonts/google_fonts.dart';
 import 'core/texts.dart';
 import 'core/mode.dart';
 import 'core/responsive.dart';
@@ -164,6 +165,86 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
         .join(" ");
   }
 
+  Widget _buildAuthBackground({required Widget child}) {
+    final scheme = Theme.of(context).colorScheme;
+    final baseA = Color.alphaBlend(
+      Colors.black.withValues(alpha: widget.isDark ? 0.58 : 0.16),
+      scheme.primary,
+    );
+    final baseB = Color.alphaBlend(
+      Colors.black.withValues(alpha: widget.isDark ? 0.62 : 0.2),
+      scheme.secondary,
+    );
+    final baseC = Color.alphaBlend(
+      Colors.black.withValues(alpha: widget.isDark ? 0.7 : 0.25),
+      scheme.primaryContainer,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [baseA, baseB, baseC],
+          stops: const [0.05, 0.52, 1],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -120,
+            left: -90,
+            child: _authGlow(
+              color: scheme.primary.withValues(
+                alpha: widget.isDark ? 0.36 : 0.24,
+              ),
+              size: 300,
+            ),
+          ),
+          Positioned(
+            right: -120,
+            bottom: -140,
+            child: _authGlow(
+              color: scheme.secondary.withValues(
+                alpha: widget.isDark ? 0.3 : 0.2,
+              ),
+              size: 340,
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withValues(alpha: widget.isDark ? 0.02 : 0.06),
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: widget.isDark ? 0.08 : 0.03),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _authGlow({required Color color, required double size}) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [color, Colors.transparent]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final dropColor = widget.isDark ? Colors.white : Colors.black;
@@ -204,14 +285,7 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
 
   /// Mobile layout - stacked vertically
   Widget _buildMobileLayout(Color dropColor) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.purple, Colors.deepPurple],
-        ),
-      ),
+    return _buildAuthBackground(
       child: Column(
         children: [
           TopBarWidget(
@@ -225,6 +299,7 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
             onModeChange: (newMode) => setState(() => mode = newMode),
             lang: widget.lang,
           ),
+          _buildCompactHeroIntro(),
           Expanded(child: _buildAuthFormCarousel()),
         ],
       ),
@@ -233,14 +308,7 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
 
   /// Tablet layout - slightly more spacious
   Widget _buildTabletLayout(Color dropColor) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.purple, Colors.deepPurple],
-        ),
-      ),
+    return _buildAuthBackground(
       child: Column(
         children: [
           TopBarWidget(
@@ -254,6 +322,7 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
             onModeChange: (newMode) => setState(() => mode = newMode),
             lang: widget.lang,
           ),
+          _buildCompactHeroIntro(),
           Expanded(
             child: Center(
               child: SizedBox(width: 600, child: _buildAuthFormCarousel()),
@@ -266,14 +335,7 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
 
   /// Desktop layout - side by side with decorative elements
   Widget _buildDesktopLayout(Color dropColor) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.purple, Colors.deepPurple],
-        ),
-      ),
+    return _buildAuthBackground(
       child: Column(
         children: [
           TopBarWidget(
@@ -367,6 +429,64 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildCompactHeroIntro() {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: widget.isDark ? 0.2 : 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+          boxShadow: [
+            BoxShadow(
+              color: scheme.primary.withValues(alpha: 0.2),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              mode == Mode.login
+                  ? t(widget.lang, 'leftHeadingLogin')
+                  : t(widget.lang, 'leftHeadingRegister'),
+              style: GoogleFonts.poppins(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.95),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              t(widget.lang, 'leftSubtitle'),
+              style: GoogleFonts.poppins(
+                fontSize: 11.6,
+                color: Colors.white.withValues(alpha: 0.82),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              mode == Mode.login
+                  ? t(widget.lang, 'leftDescriptionLogin')
+                  : t(widget.lang, 'leftDescriptionRegister'),
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                height: 1.35,
+                color: Colors.white.withValues(alpha: 0.76),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleLoginPress() async {
     if (isLoginLoading || loginCooldownSeconds > 0) return;
 
@@ -379,6 +499,7 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
       final result = await ApiService.login(
         email: emailCtrl.text.trim(),
         password: passCtrl.text,
+        locale: widget.lang,
       );
       await _completeLogin(result);
     } on ApiException catch (error) {
@@ -453,7 +574,9 @@ class _StartPageState extends State<StartPage> with TickerProviderStateMixin {
     }
 
     try {
-      final profile = await ApiService.getProfile(accessToken: result.accessToken);
+      final profile = await ApiService.getProfile(
+        accessToken: result.accessToken,
+      );
       final user = profile['user'] as Map<String, dynamic>? ?? {};
       final defaultTheme = user['defaultTheme']?.toString() ?? 'light';
       widget.onThemeChange(defaultTheme == 'dark');
@@ -758,6 +881,7 @@ class _TwoFactorLoginDialogState extends State<_TwoFactorLoginDialog> {
         email: widget.email,
         password: widget.password,
         twoFactorCode: code,
+        locale: widget.lang,
       );
       if (!mounted) return;
       Navigator.of(context).pop(result);
@@ -802,10 +926,7 @@ class _TwoFactorLoginDialogState extends State<_TwoFactorLoginDialog> {
             ),
             if (errorText != null) ...[
               const SizedBox(height: 8),
-              Text(
-                errorText!,
-                style: const TextStyle(color: Colors.red),
-              ),
+              Text(errorText!, style: const TextStyle(color: Colors.red)),
             ],
           ],
         ),

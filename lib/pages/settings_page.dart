@@ -6,11 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/romania_locations.dart';
+import '../core/skills_catalog.dart';
 import '../core/texts.dart';
 import '../pages/profile_page.dart';
 import '../services/api_service.dart';
 import '../services/secure_storage.dart';
 import '../widgets/authenticated_page_shell.dart';
+
+part 'settings/settings_sidebar_layout.part.dart';
+part 'settings/settings_edit_profile_preview.part.dart';
+part 'settings/settings_edit_profile_panel.part.dart';
+part 'settings/settings_edit_profile_rows.part.dart';
+part 'settings/settings_delete_account.part.dart';
+part 'settings/settings_change_password.part.dart';
+part 'settings/settings_two_factor_panel.part.dart';
 
 enum SettingsTab {
   twoFactor,
@@ -18,6 +27,189 @@ enum SettingsTab {
   editProfile,
   themePreference,
   deleteAccount,
+}
+
+class _ExperienceDraft {
+  final String id;
+  final TextEditingController companyCtrl;
+  final TextEditingController positionCtrl;
+  final TextEditingController descriptionCtrl;
+  int startMonth;
+  int startYear;
+  bool isCurrent;
+  int? endMonth;
+  int? endYear;
+  bool showOnProfile;
+
+  _ExperienceDraft({
+    required this.id,
+    required String companyName,
+    required String jobTitle,
+    required String description,
+    required this.startMonth,
+    required this.startYear,
+    required this.isCurrent,
+    this.endMonth,
+    this.endYear,
+    this.showOnProfile = true,
+  }) : companyCtrl = TextEditingController(text: companyName),
+       positionCtrl = TextEditingController(text: jobTitle),
+       descriptionCtrl = TextEditingController(text: description);
+
+  Map<String, dynamic> toJson() {
+    return {
+      'companyName': companyCtrl.text.trim(),
+      'jobTitle': positionCtrl.text.trim(),
+      'description': descriptionCtrl.text.trim(),
+      'startMonth': startMonth,
+      'startYear': startYear,
+      'isCurrent': isCurrent,
+      'endMonth': isCurrent ? null : endMonth,
+      'endYear': isCurrent ? null : endYear,
+      'showOnProfile': showOnProfile,
+    };
+  }
+
+  void dispose() {
+    companyCtrl.dispose();
+    positionCtrl.dispose();
+    descriptionCtrl.dispose();
+  }
+}
+
+class _EducationDraft {
+  final String id;
+  String? educationLevel;
+  final TextEditingController universityCtrl;
+  final TextEditingController specializationCtrl;
+  int startMonth;
+  int startYear;
+  bool isCurrent;
+  int? endMonth;
+  int? endYear;
+  bool showOnProfile;
+
+  _EducationDraft({
+    required this.id,
+    this.educationLevel,
+    required String university,
+    required String specialization,
+    required this.startMonth,
+    required this.startYear,
+    required this.isCurrent,
+    this.endMonth,
+    this.endYear,
+    this.showOnProfile = true,
+  }) : universityCtrl = TextEditingController(text: university),
+       specializationCtrl = TextEditingController(text: specialization);
+
+  Map<String, dynamic> toJson() {
+    return {
+      'educationLevel': educationLevel,
+      'university': universityCtrl.text.trim(),
+      'specialization': specializationCtrl.text.trim(),
+      'startMonth': startMonth,
+      'startYear': startYear,
+      'isCurrent': isCurrent,
+      'endMonth': isCurrent ? null : endMonth,
+      'endYear': isCurrent ? null : endYear,
+      'showOnProfile': showOnProfile,
+    };
+  }
+
+  void dispose() {
+    universityCtrl.dispose();
+    specializationCtrl.dispose();
+  }
+}
+
+enum _SkillCategory { language, soft, hard }
+
+class _SkillDraft {
+  final String id;
+  final _SkillCategory category;
+  final TextEditingController nameCtrl;
+  double score;
+  bool isVisible;
+
+  _SkillDraft({
+    required this.id,
+    required this.category,
+    required String name,
+    required this.score,
+    required this.isVisible,
+  }) : nameCtrl = TextEditingController(text: name);
+
+  Map<String, dynamic> toJson() {
+    final categoryValue = switch (category) {
+      _SkillCategory.language => 'language',
+      _SkillCategory.soft => 'soft',
+      _SkillCategory.hard => 'hard',
+    };
+    final normalizedScore = score < 1
+        ? 1
+        : (score > 10 ? 10 : score);
+
+    return {
+      'category': categoryValue,
+      'name': nameCtrl.text.trim(),
+      'score': normalizedScore,
+      'isVisible': isVisible,
+    };
+  }
+
+  void dispose() {
+    nameCtrl.dispose();
+  }
+}
+
+class _ProjectDraft {
+  final String id;
+  final TextEditingController titleCtrl;
+  final TextEditingController descriptionCtrl;
+  final TextEditingController githubUrlCtrl;
+  int startMonth;
+  int startYear;
+  bool isCurrent;
+  int? endMonth;
+  int? endYear;
+  bool showOnProfile;
+
+  _ProjectDraft({
+    required this.id,
+    required String title,
+    required String description,
+    required String githubUrl,
+    required this.startMonth,
+    required this.startYear,
+    required this.isCurrent,
+    this.endMonth,
+    this.endYear,
+    this.showOnProfile = true,
+  }) : titleCtrl = TextEditingController(text: title),
+       descriptionCtrl = TextEditingController(text: description),
+       githubUrlCtrl = TextEditingController(text: githubUrl);
+
+  Map<String, dynamic> toJson() {
+    final githubUrl = githubUrlCtrl.text.trim();
+    return {
+      'title': titleCtrl.text.trim(),
+      'description': descriptionCtrl.text.trim(),
+      'githubUrl': githubUrl.isEmpty ? null : githubUrl,
+      'startMonth': startMonth,
+      'startYear': startYear,
+      'isCurrent': isCurrent,
+      'endMonth': isCurrent ? null : endMonth,
+      'endYear': isCurrent ? null : endYear,
+      'showOnProfile': showOnProfile,
+    };
+  }
+
+  void dispose() {
+    titleCtrl.dispose();
+    descriptionCtrl.dispose();
+    githubUrlCtrl.dispose();
+  }
 }
 
 class SettingsPage extends StatefulWidget {
@@ -42,6 +234,11 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   static const String _avatarCacheKey = 'profile_avatar_base64_cache';
+  static const int _maxExperienceDrafts = 5;
+  static const int _maxEducationDrafts = 5;
+  static const int _maxSkillsPerCategory = 20;
+  static const int _maxProjectDrafts = 10;
+  int _draftIdSeed = 0;
 
   bool isLoading = true;
   String? errorMessage;
@@ -52,6 +249,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool currentIsDark;
 
   SettingsTab selectedTab = SettingsTab.editProfile;
+  String? _selectedEditProfileSubcategory;
   bool isSidebarCollapsed = false;
 
   final currentPasswordCtrl = TextEditingController();
@@ -78,7 +276,12 @@ class _SettingsPageState extends State<SettingsPage> {
   final phoneCtrl = TextEditingController();
   final professionalTitleCtrl = TextEditingController();
   final yearsExperienceCtrl = TextEditingController();
-  final educationInstitutionCtrl = TextEditingController();
+  final profileSummaryCtrl = TextEditingController();
+  final linkedInCtrl = TextEditingController();
+  final githubCtrl = TextEditingController();
+  final youtubeCtrl = TextEditingController();
+  final instagramCtrl = TextEditingController();
+  final tiktokCtrl = TextEditingController();
 
   final companyNameCtrl = TextEditingController();
   final companyCountyCtrl = TextEditingController();
@@ -87,11 +290,50 @@ class _SettingsPageState extends State<SettingsPage> {
   String userCountry = 'Romania';
   String? userCounty;
   String? userCity;
-  String? userEducationLevel;
+  String? userProfessionalStatus;
   String? accountGender;
   DateTime? accountBirthDate;
+  DateTime? accountCreatedAt;
+  final List<_ExperienceDraft> _experienceDrafts = [];
+  final List<_EducationDraft> _educationDrafts = [];
+  final List<_SkillDraft> _skillDrafts = [];
+  final List<_ProjectDraft> _projectDrafts = [];
+  final Map<String, bool> _editProfileSectionExpanded = {};
 
   Map<String, bool> visibility = {};
+  bool isSavingProfileDraft = false;
+  String _initialProfileDraftSignature = '';
+  String _initialVisibilityDraftSignature = '';
+
+  static const List<String> _trackedVisibilityKeys = [
+    'showGender',
+    'showBirthDate',
+    'showAccountCreatedDate',
+    'showAccountCreatedTime',
+    'showJobTitle',
+    'showPhone',
+    'showCountry',
+    'showCounty',
+    'showCity',
+    'showYearsExperience',
+    'showEducationLevel',
+    'showEducationInstitution',
+    'showSpecialization',
+    'showCompanyName',
+    'showCompanyCounty',
+    'showCompanyCity',
+    'showHrFirstName',
+    'showHrLastName',
+    'showHrEmail',
+    'showCv',
+    'showProfileSummary',
+    'showProfessionalStatus',
+    'showLinkedIn',
+    'showGithub',
+    'showYoutube',
+    'showInstagram',
+    'showTiktok',
+  ];
 
   List<String> get _educationLevels => [
     t(widget.lang, 'educationHighSchool'),
@@ -99,6 +341,21 @@ class _SettingsPageState extends State<SettingsPage> {
     t(widget.lang, 'educationBachelor'),
     t(widget.lang, 'educationMaster'),
     t(widget.lang, 'educationDoctorate'),
+  ];
+
+  List<DropdownMenuEntry<String>> get _professionalStatusEntries => [
+    DropdownMenuEntry(
+      value: 'open_to_work',
+      label: t(widget.lang, 'professionalStatusOpenToWork'),
+    ),
+    DropdownMenuEntry(
+      value: 'hired',
+      label: t(widget.lang, 'professionalStatusHired'),
+    ),
+    DropdownMenuEntry(
+      value: 'not_available',
+      label: t(widget.lang, 'professionalStatusNotAvailable'),
+    ),
   ];
 
   @override
@@ -140,11 +397,28 @@ class _SettingsPageState extends State<SettingsPage> {
     phoneCtrl.dispose();
     professionalTitleCtrl.dispose();
     yearsExperienceCtrl.dispose();
-    educationInstitutionCtrl.dispose();
+    profileSummaryCtrl.dispose();
+    linkedInCtrl.dispose();
+    githubCtrl.dispose();
+    youtubeCtrl.dispose();
+    instagramCtrl.dispose();
+    tiktokCtrl.dispose();
 
     companyNameCtrl.dispose();
     companyCountyCtrl.dispose();
     companyCityCtrl.dispose();
+    for (final experience in _experienceDrafts) {
+      experience.dispose();
+    }
+    for (final education in _educationDrafts) {
+      education.dispose();
+    }
+    for (final skill in _skillDrafts) {
+      skill.dispose();
+    }
+    for (final project in _projectDrafts) {
+      project.dispose();
+    }
     super.dispose();
   }
 
@@ -223,6 +497,7 @@ class _SettingsPageState extends State<SettingsPage> {
         isDefaultThemeDark =
             (user['defaultTheme']?.toString() ?? 'light') == 'dark';
         isLoading = false;
+        _captureEditProfileBaseline();
       });
 
       if ((data['user'] as Map<String, dynamic>?)?['twoFactorPending'] ==
@@ -306,11 +581,20 @@ class _SettingsPageState extends State<SettingsPage> {
     userCity = _nullableTrimmed(userProfile['city']?.toString());
     yearsExperienceCtrl.text = userProfile['yearsExperience']?.toString() ?? '';
     professionalTitleCtrl.text = userProfile['jobTitle']?.toString() ?? '';
-    userEducationLevel = _nullableTrimmed(
-      userProfile['educationLevel']?.toString(),
-    );
-    educationInstitutionCtrl.text =
-        userProfile['educationInstitution']?.toString() ?? '';
+    profileSummaryCtrl.text = userProfile['profileSummary']?.toString() ?? '';
+    linkedInCtrl.text = userProfile['linkedInUrl']?.toString() ?? '';
+    githubCtrl.text = userProfile['githubUrl']?.toString() ?? '';
+    youtubeCtrl.text = userProfile['youtubeUrl']?.toString() ?? '';
+    instagramCtrl.text = userProfile['instagramUrl']?.toString() ?? '';
+    tiktokCtrl.text = userProfile['tiktokUrl']?.toString() ?? '';
+
+    final professionalStatusRaw = userProfile['professionalStatus']?.toString();
+    userProfessionalStatus =
+      professionalStatusRaw == 'open_to_work' ||
+        professionalStatusRaw == 'hired' ||
+        professionalStatusRaw == 'not_available'
+      ? professionalStatusRaw
+      : null;
 
     companyNameCtrl.text = companyProfile['companyName']?.toString() ?? '';
     companyCountyCtrl.text = companyProfile['county']?.toString() ?? '';
@@ -325,6 +609,16 @@ class _SettingsPageState extends State<SettingsPage> {
     accountBirthDate = birthDateRaw == null || birthDateRaw.trim().isEmpty
         ? null
         : DateTime.tryParse(birthDateRaw);
+
+    final createdAtRaw = user['createdAt']?.toString();
+    accountCreatedAt = createdAtRaw == null || createdAtRaw.trim().isEmpty
+      ? null
+      : DateTime.tryParse(createdAtRaw)?.toLocal();
+
+    _replaceExperienceDraftsFromProfile(data);
+    _replaceEducationDraftsFromProfile(data);
+    _replaceSkillDraftsFromProfile(data);
+    _replaceProjectDraftsFromProfile(data);
   }
 
   String _formatBirthDate(DateTime value) {
@@ -332,6 +626,44 @@ class _SettingsPageState extends State<SettingsPage> {
     final month = value.month.toString().padLeft(2, '0');
     final day = value.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
+  }
+
+  String _formatDateDisplay(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    final year = value.year.toString().padLeft(4, '0');
+    return '$day.$month.$year';
+  }
+
+  String _formatTimeDisplay(DateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    final second = value.second.toString().padLeft(2, '0');
+    return '$hour:$minute:$second';
+  }
+
+  bool _isHighSchoolEducationLevel(String? level) {
+    return level == t(widget.lang, 'educationHighSchool');
+  }
+
+  bool _isUniversityEducationLevel(String? level) {
+    if (level == null) return false;
+    return level == t(widget.lang, 'educationBachelor') ||
+        level == t(widget.lang, 'educationMaster') ||
+        level == t(widget.lang, 'educationDoctorate');
+  }
+
+  String _educationInstitutionLabelForLevel(String? level) {
+    if (_isHighSchoolEducationLevel(level)) {
+      return t(widget.lang, 'educationHighSchoolCompleted');
+    }
+    if (level == t(widget.lang, 'educationPostSecondary')) {
+      return t(widget.lang, 'educationPostSecondaryLabel');
+    }
+    if (_isUniversityEducationLevel(level)) {
+      return t(widget.lang, 'educationUniversityLabel');
+    }
+    return t(widget.lang, 'lastEducationInstitution');
   }
 
   Future<void> _pickAccountBirthDate() async {
@@ -364,6 +696,620 @@ class _SettingsPageState extends State<SettingsPage> {
     return trimmed.isEmpty ? null : trimmed;
   }
 
+  String _trimmed(String value) => value.trim();
+
+  int _safeMonth(int value) {
+    if (value < 1 || value > 12) {
+      return 1;
+    }
+    return value;
+  }
+
+  int? _safeNullableMonth(int? value) {
+    if (value == null) return null;
+    return _safeMonth(value);
+  }
+
+  int _safeYear(int value) {
+    final currentYear = DateTime.now().year;
+    final minYear = currentYear - 80;
+    if (value < minYear || value > currentYear) {
+      return currentYear;
+    }
+    return value;
+  }
+
+  int? _safeNullableYear(int? value) {
+    if (value == null) return null;
+    return _safeYear(value);
+  }
+
+  String _nextDraftId(String prefix) {
+    _draftIdSeed += 1;
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    return '${prefix}_${timestamp}_$_draftIdSeed';
+  }
+
+  List<int> get _experienceYearOptions {
+    final currentYear = DateTime.now().year;
+    return List<int>.generate(81, (index) => currentYear - index);
+  }
+
+  String _monthName(int month) => t(widget.lang, 'monthName${month.toString().padLeft(2, '0')}');
+
+  String _monthOptionLabel(int month) {
+    final number = month.toString().padLeft(2, '0');
+    return '$number - ${_monthName(month)}';
+  }
+
+  bool _isEndDateBeforeStart({
+    required int startMonth,
+    required int startYear,
+    required int? endMonth,
+    required int? endYear,
+  }) {
+    if (endMonth == null || endYear == null) {
+      return false;
+    }
+    final startValue = startYear * 12 + startMonth;
+    final endValue = endYear * 12 + endMonth;
+    return endValue < startValue;
+  }
+
+  List<int> _endYearOptionsFor(int startYear) {
+    return _experienceYearOptions.where((year) => year >= startYear).toList(growable: false);
+  }
+
+  List<int> _endMonthOptionsFor({required int startYear, required int startMonth, required int? endYear}) {
+    if (endYear == null || endYear > startYear) {
+      return List<int>.generate(12, (index) => index + 1);
+    }
+    return List<int>.generate(12 - startMonth + 1, (index) => startMonth + index);
+  }
+
+  String _skillCategoryValue(_SkillCategory category) {
+    return switch (category) {
+      _SkillCategory.language => 'language',
+      _SkillCategory.soft => 'soft',
+      _SkillCategory.hard => 'hard',
+    };
+  }
+
+  _SkillCategory? _skillCategoryFromValue(String? value) {
+    switch (value) {
+      case 'language':
+        return _SkillCategory.language;
+      case 'soft':
+        return _SkillCategory.soft;
+      case 'hard':
+        return _SkillCategory.hard;
+      default:
+        return null;
+    }
+  }
+
+  List<_SkillDraft> _skillsByCategory(_SkillCategory category) {
+    return _skillDrafts.where((skill) => skill.category == category).toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _buildSkillDraftsPayload({bool includeIncomplete = true}) {
+    final items = _skillDrafts.map((skill) => skill.toJson()).toList(growable: false);
+    if (includeIncomplete) {
+      return items;
+    }
+    return items.where((entry) => (entry['name']?.toString().trim().isNotEmpty ?? false)).toList(growable: false);
+  }
+
+  String? _validateSkillDraftsForSave() {
+    for (final entry in _buildSkillDraftsPayload()) {
+      final name = entry['name']?.toString().trim() ?? '';
+      if (name.isEmpty) {
+        continue;
+      }
+      final score = (entry['score'] as num?)?.toDouble() ?? 0;
+      if (score < 1 || score > 10) {
+        return t(widget.lang, 'completeAllFields');
+      }
+    }
+    return null;
+  }
+
+  void _replaceSkillDraftsFromProfile(Map<String, dynamic> data) {
+    for (final skill in _skillDrafts) {
+      skill.dispose();
+    }
+    _skillDrafts.clear();
+
+    final raw = data['userSkills'];
+    if (raw is! List) {
+      return;
+    }
+
+    final seenIds = <String>{};
+    for (final entry in raw) {
+      if (entry is! Map<String, dynamic>) continue;
+
+      final category = _skillCategoryFromValue(entry['category']?.toString());
+      if (category == null) continue;
+
+      final candidateId = entry['id']?.toString().trim() ?? '';
+      final uniqueId = candidateId.isEmpty || seenIds.contains(candidateId)
+          ? _nextDraftId('skill')
+          : candidateId;
+      seenIds.add(uniqueId);
+
+      final score = _safeScore(entry['score']);
+
+      _skillDrafts.add(
+        _SkillDraft(
+          id: uniqueId,
+          category: category,
+          name: entry['name']?.toString() ?? '',
+          score: score < 1 ? 1 : (score > 10 ? 10 : score),
+          isVisible: entry['isVisible'] != false,
+        ),
+      );
+    }
+  }
+
+  void _addSkillDraft(_SkillCategory category) {
+    if (_skillsByCategory(category).length >= _maxSkillsPerCategory) return;
+    setState(() {
+      _skillDrafts.add(
+        _SkillDraft(
+          id: _nextDraftId('skill'),
+          category: category,
+          name: '',
+          score: 5,
+          isVisible: true,
+        ),
+      );
+    });
+  }
+
+  void _removeSkillDraft(_SkillDraft draft) {
+    setState(() {
+      _skillDrafts.remove(draft);
+      draft.dispose();
+    });
+  }
+
+  double _safeScore(dynamic rawScore) {
+    if (rawScore is num) {
+      final parsed = rawScore.toDouble();
+      return parsed < 1 ? 1 : (parsed > 10 ? 10 : parsed);
+    }
+    if (rawScore is bool) {
+      return 5;
+    }
+    final parsed = double.tryParse(rawScore?.toString().replaceAll(',', '.') ?? '');
+    if (parsed == null) {
+      return 5;
+    }
+    return parsed < 1 ? 1 : (parsed > 10 ? 10 : parsed);
+  }
+
+  List<Map<String, dynamic>> _buildProjectDraftsPayload({bool includeIncomplete = true}) {
+    final items = _projectDrafts.map((project) => project.toJson()).toList(growable: false);
+    if (includeIncomplete) {
+      return items;
+    }
+    return items
+        .where((entry) => (entry['title']?.toString().trim().isNotEmpty ?? false))
+        .toList(growable: false);
+  }
+
+  String? _validateProjectDraftsForSave() {
+    for (final entry in _buildProjectDraftsPayload()) {
+      final title = entry['title']?.toString().trim() ?? '';
+      final hasAnyContent =
+          title.isNotEmpty ||
+          (entry['description']?.toString().trim().isNotEmpty ?? false) ||
+          (entry['githubUrl']?.toString().trim().isNotEmpty ?? false);
+
+      if (!hasAnyContent) {
+        continue;
+      }
+      if (title.isEmpty) {
+        return t(widget.lang, 'completeAllFields');
+      }
+
+      final startMonth = (entry['startMonth'] as num?)?.toInt();
+      final startYear = (entry['startYear'] as num?)?.toInt();
+      final isCurrent = entry['isCurrent'] == true;
+      final endMonth = (entry['endMonth'] as num?)?.toInt();
+      final endYear = (entry['endYear'] as num?)?.toInt();
+
+      if (startMonth == null || startYear == null) {
+        return t(widget.lang, 'completeAllFields');
+      }
+
+      if (!isCurrent && _isEndDateBeforeStart(
+        startMonth: startMonth,
+        startYear: startYear,
+        endMonth: endMonth,
+        endYear: endYear,
+      )) {
+        return t(widget.lang, 'invalidEndDate');
+      }
+    }
+    return null;
+  }
+
+  void _replaceProjectDraftsFromProfile(Map<String, dynamic> data) {
+    for (final project in _projectDrafts) {
+      project.dispose();
+    }
+    _projectDrafts.clear();
+
+    final raw = data['userProjects'];
+    if (raw is! List) {
+      return;
+    }
+
+    final seenIds = <String>{};
+    for (final entry in raw) {
+      if (entry is! Map<String, dynamic>) continue;
+
+      final candidateId = entry['id']?.toString().trim() ?? '';
+      final uniqueId = candidateId.isEmpty || seenIds.contains(candidateId)
+          ? _nextDraftId('project')
+          : candidateId;
+      seenIds.add(uniqueId);
+
+      final startMonth = _safeMonth((entry['startMonth'] as num?)?.toInt() ?? 1);
+      final startYear = _safeYear((entry['startYear'] as num?)?.toInt() ?? DateTime.now().year);
+      final isCurrent = entry['isCurrent'] == true;
+      final safeEndYear = _safeNullableYear((entry['endYear'] as num?)?.toInt());
+      final safeEndMonth = _safeNullableMonth((entry['endMonth'] as num?)?.toInt());
+
+      _projectDrafts.add(
+        _ProjectDraft(
+          id: uniqueId,
+          title: entry['title']?.toString() ?? '',
+          description: entry['description']?.toString() ?? '',
+          githubUrl: entry['githubUrl']?.toString() ?? '',
+          startMonth: startMonth,
+          startYear: startYear,
+          isCurrent: isCurrent,
+          endMonth: isCurrent ? null : safeEndMonth,
+          endYear: isCurrent ? null : safeEndYear,
+          showOnProfile: entry['showOnProfile'] != false,
+        ),
+      );
+    }
+  }
+
+  void _addProjectDraft() {
+    if (_projectDrafts.length >= _maxProjectDrafts) return;
+    final currentYear = DateTime.now().year;
+    setState(() {
+      _projectDrafts.add(
+        _ProjectDraft(
+          id: _nextDraftId('project'),
+          title: '',
+          description: '',
+          githubUrl: '',
+          startMonth: 1,
+          startYear: currentYear,
+          isCurrent: true,
+          showOnProfile: true,
+        ),
+      );
+    });
+  }
+
+  void _removeProjectDraft(_ProjectDraft draft) {
+    setState(() {
+      _projectDrafts.remove(draft);
+      draft.dispose();
+    });
+  }
+
+  List<Map<String, dynamic>> _buildExperienceDraftsPayload({
+    bool includeIncomplete = true,
+  }) {
+    final items = _experienceDrafts
+        .map((experience) => experience.toJson())
+        .toList(growable: false);
+
+    if (includeIncomplete) {
+      return items;
+    }
+
+    return items.where((entry) {
+      final company = entry['companyName']?.toString() ?? '';
+      final role = entry['jobTitle']?.toString() ?? '';
+      return company.isNotEmpty && role.isNotEmpty;
+    }).toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _buildEducationDraftsPayload({
+    bool includeIncomplete = true,
+  }) {
+    final items = _educationDrafts
+        .map((education) => education.toJson())
+        .toList(growable: false);
+
+    if (includeIncomplete) {
+      return items;
+    }
+
+    return items.where((entry) {
+      final educationLevel = entry['educationLevel']?.toString() ?? '';
+      final university = entry['university']?.toString() ?? '';
+      return educationLevel.isNotEmpty && university.isNotEmpty;
+    }).toList(growable: false);
+  }
+
+  String? _validateExperienceDraftsForSave() {
+    for (final entry in _buildExperienceDraftsPayload()) {
+      final company = entry['companyName']?.toString() ?? '';
+      final role = entry['jobTitle']?.toString() ?? '';
+      final hasAnyContent =
+          company.isNotEmpty ||
+          role.isNotEmpty ||
+          (entry['description']?.toString().isNotEmpty ?? false);
+
+      if (!hasAnyContent) {
+        continue;
+      }
+
+      if (company.isEmpty || role.isEmpty) {
+        return t(widget.lang, 'completeAllFields');
+      }
+
+      final isCurrent = entry['isCurrent'] == true;
+      if (!isCurrent && (entry['endMonth'] == null || entry['endYear'] == null)) {
+        return t(widget.lang, 'completeAllFields');
+      }
+      if (!isCurrent &&
+          _isEndDateBeforeStart(
+            startMonth: (entry['startMonth'] as num?)?.toInt() ?? 1,
+            startYear: (entry['startYear'] as num?)?.toInt() ?? DateTime.now().year,
+            endMonth: (entry['endMonth'] as num?)?.toInt(),
+            endYear: (entry['endYear'] as num?)?.toInt(),
+          )) {
+        return t(widget.lang, 'invalidEndDate');
+      }
+    }
+
+    return null;
+  }
+
+  String? _validateEducationDraftsForSave() {
+    for (final entry in _buildEducationDraftsPayload()) {
+      final educationLevel = entry['educationLevel']?.toString() ?? '';
+      final university = entry['university']?.toString() ?? '';
+      final specialization = entry['specialization']?.toString() ?? '';
+      final hasAnyContent =
+          educationLevel.isNotEmpty || university.isNotEmpty || specialization.isNotEmpty;
+
+      if (!hasAnyContent) {
+        continue;
+      }
+
+      if (educationLevel.isEmpty || university.isEmpty) {
+        return t(widget.lang, 'completeAllFields');
+      }
+
+      final isCurrent = entry['isCurrent'] == true;
+      if (!isCurrent && (entry['endMonth'] == null || entry['endYear'] == null)) {
+        return t(widget.lang, 'completeAllFields');
+      }
+      if (!isCurrent &&
+          _isEndDateBeforeStart(
+            startMonth: (entry['startMonth'] as num?)?.toInt() ?? 1,
+            startYear: (entry['startYear'] as num?)?.toInt() ?? DateTime.now().year,
+            endMonth: (entry['endMonth'] as num?)?.toInt(),
+            endYear: (entry['endYear'] as num?)?.toInt(),
+          )) {
+        return t(widget.lang, 'invalidEndDate');
+      }
+    }
+
+    return null;
+  }
+
+  void _replaceExperienceDraftsFromProfile(Map<String, dynamic> data) {
+    for (final experience in _experienceDrafts) {
+      experience.dispose();
+    }
+    _experienceDrafts.clear();
+
+    final raw = data['userExperiences'];
+    if (raw is! List) {
+      return;
+    }
+
+    final seenIds = <String>{};
+    for (final entry in raw) {
+      if (entry is! Map<String, dynamic>) continue;
+
+      final candidateId = entry['id']?.toString().trim() ?? '';
+      final uniqueId =
+          candidateId.isEmpty || seenIds.contains(candidateId)
+          ? _nextDraftId('experience')
+          : candidateId;
+      seenIds.add(uniqueId);
+
+      _experienceDrafts.add(
+        _ExperienceDraft(
+          id: uniqueId,
+          companyName: entry['companyName']?.toString() ?? '',
+          jobTitle: entry['jobTitle']?.toString() ?? '',
+          description: entry['description']?.toString() ?? '',
+          startMonth: _safeMonth((entry['startMonth'] as num?)?.toInt() ?? 1),
+          startYear: _safeYear(
+            (entry['startYear'] as num?)?.toInt() ?? DateTime.now().year,
+          ),
+          isCurrent: entry['isCurrent'] == true,
+          endMonth: _safeNullableMonth((entry['endMonth'] as num?)?.toInt()),
+          endYear: _safeNullableYear((entry['endYear'] as num?)?.toInt()),
+          showOnProfile: entry['showOnProfile'] != false,
+        ),
+      );
+    }
+  }
+
+  void _replaceEducationDraftsFromProfile(Map<String, dynamic> data) {
+    for (final education in _educationDrafts) {
+      education.dispose();
+    }
+    _educationDrafts.clear();
+
+    final raw = data['userEducations'];
+    if (raw is! List) {
+      return;
+    }
+
+    final seenIds = <String>{};
+    for (final entry in raw) {
+      if (entry is! Map<String, dynamic>) continue;
+
+      final candidateId = entry['id']?.toString().trim() ?? '';
+      final uniqueId =
+          candidateId.isEmpty || seenIds.contains(candidateId)
+          ? _nextDraftId('education')
+          : candidateId;
+      seenIds.add(uniqueId);
+
+      _educationDrafts.add(
+        _EducationDraft(
+          id: uniqueId,
+          educationLevel: _nullableTrimmed(entry['educationLevel']?.toString()),
+          university: entry['university']?.toString() ?? '',
+          specialization: entry['specialization']?.toString() ?? '',
+          startMonth: _safeMonth((entry['startMonth'] as num?)?.toInt() ?? 1),
+          startYear: _safeYear(
+            (entry['startYear'] as num?)?.toInt() ?? DateTime.now().year,
+          ),
+          isCurrent: entry['isCurrent'] == true,
+          endMonth: _safeNullableMonth((entry['endMonth'] as num?)?.toInt()),
+          endYear: _safeNullableYear((entry['endYear'] as num?)?.toInt()),
+          showOnProfile: entry['showOnProfile'] != false,
+        ),
+      );
+    }
+  }
+
+  void _addExperienceDraft() {
+    if (_experienceDrafts.length >= _maxExperienceDrafts) return;
+    final currentYear = DateTime.now().year;
+    setState(() {
+      _experienceDrafts.add(
+        _ExperienceDraft(
+          id: _nextDraftId('experience'),
+          companyName: '',
+          jobTitle: '',
+          description: '',
+          startMonth: 1,
+          startYear: currentYear,
+          isCurrent: true,
+          showOnProfile: true,
+        ),
+      );
+    });
+  }
+
+  void _removeExperienceDraft(_ExperienceDraft draft) {
+    setState(() {
+      _experienceDrafts.remove(draft);
+      draft.dispose();
+    });
+  }
+
+  void _addEducationDraft() {
+    if (_educationDrafts.length >= _maxEducationDrafts) return;
+    final currentYear = DateTime.now().year;
+    setState(() {
+      _educationDrafts.add(
+        _EducationDraft(
+          id: _nextDraftId('education'),
+          educationLevel: null,
+          university: '',
+          specialization: '',
+          startMonth: 1,
+          startYear: currentYear,
+          isCurrent: true,
+          showOnProfile: true,
+        ),
+      );
+    });
+  }
+
+  void _removeEducationDraft(_EducationDraft draft) {
+    setState(() {
+      _educationDrafts.remove(draft);
+      draft.dispose();
+    });
+  }
+
+  String _boolSignature(bool value) => value ? '1' : '0';
+
+  Map<String, dynamic> _buildProfileDraftMap() {
+    final accountType = profileData?['accountType'] as String? ?? 'user';
+
+    final base = <String, dynamic>{
+      'accountType': accountType,
+      'gender': accountGender,
+      'birthDate': accountBirthDate == null
+          ? null
+          : _formatBirthDate(accountBirthDate!),
+    };
+
+    if (accountType == 'user') {
+      base.addAll({
+        'phone': _trimmed(phoneCtrl.text),
+        'country': userCountry,
+        'county': userCounty,
+        'city': userCity,
+        'jobTitle': _trimmed(professionalTitleCtrl.text),
+        'professionalStatus': userProfessionalStatus,
+        'yearsExperience': _trimmed(yearsExperienceCtrl.text),
+        'profileSummary': _trimmed(profileSummaryCtrl.text),
+        'linkedInUrl': _trimmed(linkedInCtrl.text),
+        'githubUrl': _trimmed(githubCtrl.text),
+        'youtubeUrl': _trimmed(youtubeCtrl.text),
+        'instagramUrl': _trimmed(instagramCtrl.text),
+        'tiktokUrl': _trimmed(tiktokCtrl.text),
+        'experiences': _buildExperienceDraftsPayload(),
+        'educations': _buildEducationDraftsPayload(),
+        'skills': _buildSkillDraftsPayload(),
+        'projects': _buildProjectDraftsPayload(),
+      });
+    } else {
+      base.addAll({
+        'companyName': _trimmed(companyNameCtrl.text),
+        'companyCounty': _trimmed(companyCountyCtrl.text),
+        'companyCity': _trimmed(companyCityCtrl.text),
+      });
+    }
+
+    return base;
+  }
+
+  String _buildProfileDraftSignature() => jsonEncode(_buildProfileDraftMap());
+
+  String _buildVisibilityDraftSignature() {
+    final signatureMap = <String, String>{};
+    for (final key in _trackedVisibilityKeys) {
+      signatureMap[key] = _boolSignature(visibility[key] ?? false);
+    }
+    return jsonEncode(signatureMap);
+  }
+
+  void _captureEditProfileBaseline() {
+    _initialProfileDraftSignature = _buildProfileDraftSignature();
+    _initialVisibilityDraftSignature = _buildVisibilityDraftSignature();
+  }
+
+  bool get _hasUnsavedEditProfileChanges {
+    if (profileData == null || isLoading) return false;
+    return _buildProfileDraftSignature() != _initialProfileDraftSignature ||
+        _buildVisibilityDraftSignature() != _initialVisibilityDraftSignature;
+  }
+
   Future<void> _saveUserProfile() async {
     if (accessToken == null) return;
 
@@ -382,14 +1328,86 @@ class _SettingsPageState extends State<SettingsPage> {
       county: userCounty,
       city: userCity,
       yearsExperience: years,
-      educationLevel: userEducationLevel,
-      educationInstitution: educationInstitutionCtrl.text.trim(),
+      profileSummary: profileSummaryCtrl.text.trim().isEmpty
+          ? null
+          : profileSummaryCtrl.text.trim(),
+        linkedInUrl: linkedInCtrl.text.trim().isEmpty
+          ? null
+          : linkedInCtrl.text.trim(),
+        githubUrl: githubCtrl.text.trim().isEmpty
+          ? null
+          : githubCtrl.text.trim(),
+        youtubeUrl: youtubeCtrl.text.trim().isEmpty
+          ? null
+          : youtubeCtrl.text.trim(),
+        instagramUrl: instagramCtrl.text.trim().isEmpty
+          ? null
+          : instagramCtrl.text.trim(),
+        tiktokUrl: tiktokCtrl.text.trim().isEmpty
+          ? null
+          : tiktokCtrl.text.trim(),
+      professionalStatus: userProfessionalStatus,
     );
+  }
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(t(widget.lang, 'saveChanges'))));
+  Future<void> _saveUserExperiences() async {
+    if (accessToken == null) return;
+
+    final validationError = _validateExperienceDraftsForSave();
+    if (validationError != null) {
+      throw StateError(validationError);
+    }
+
+    final experiences = _buildExperienceDraftsPayload(includeIncomplete: false);
+    await ApiService.setUserExperiences(
+      accessToken: accessToken!,
+      experiences: experiences,
+    );
+  }
+
+  Future<void> _saveUserEducations() async {
+    if (accessToken == null) return;
+
+    final validationError = _validateEducationDraftsForSave();
+    if (validationError != null) {
+      throw StateError(validationError);
+    }
+
+    final educations = _buildEducationDraftsPayload(includeIncomplete: false);
+    await ApiService.setUserEducations(
+      accessToken: accessToken!,
+      educations: educations,
+    );
+  }
+
+  Future<void> _saveUserSkills() async {
+    if (accessToken == null) return;
+
+    final validationError = _validateSkillDraftsForSave();
+    if (validationError != null) {
+      throw StateError(validationError);
+    }
+
+    final skills = _buildSkillDraftsPayload(includeIncomplete: false);
+    await ApiService.setUserSkills(
+      accessToken: accessToken!,
+      skills: skills,
+    );
+  }
+
+  Future<void> _saveUserProjects() async {
+    if (accessToken == null) return;
+
+    final validationError = _validateProjectDraftsForSave();
+    if (validationError != null) {
+      throw StateError(validationError);
+    }
+
+    final projects = _buildProjectDraftsPayload(includeIncomplete: false);
+    await ApiService.setUserProjects(
+      accessToken: accessToken!,
+      projects: projects,
+    );
   }
 
   Future<void> _saveCompanyProfile() async {
@@ -405,19 +1423,92 @@ class _SettingsPageState extends State<SettingsPage> {
       county: companyCountyCtrl.text.trim(),
       city: companyCityCtrl.text.trim(),
     );
+  }
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(t(widget.lang, 'saveChanges'))));
+  Future<void> _saveVisibilityDraft() async {
+    if (accessToken == null) return;
+
+    bool valueOf(String key) => visibility[key] ?? false;
+
+    await ApiService.updateProfileVisibility(
+      accessToken: accessToken!,
+      showGender: valueOf('showGender'),
+      showBirthDate: valueOf('showBirthDate'),
+      showAccountCreatedDate: valueOf('showAccountCreatedDate'),
+      showAccountCreatedTime: valueOf('showAccountCreatedTime'),
+      showJobTitle: valueOf('showJobTitle'),
+      showPhone: valueOf('showPhone'),
+      showCountry: valueOf('showCountry'),
+      showCounty: valueOf('showCounty'),
+      showCity: valueOf('showCity'),
+      showYearsExperience: valueOf('showYearsExperience'),
+      showEducationLevel: valueOf('showEducationLevel'),
+      showEducationInstitution: valueOf('showEducationInstitution'),
+      showSpecialization: valueOf('showSpecialization'),
+      showCompanyName: valueOf('showCompanyName'),
+      showCompanyCounty: valueOf('showCompanyCounty'),
+      showCompanyCity: valueOf('showCompanyCity'),
+      showHrFirstName: valueOf('showHrFirstName'),
+      showHrLastName: valueOf('showHrLastName'),
+      showHrEmail: valueOf('showHrEmail'),
+      showCv: valueOf('showCv'),
+      showProfileSummary: valueOf('showProfileSummary'),
+      showProfessionalStatus: valueOf('showProfessionalStatus'),
+      showLinkedIn: valueOf('showLinkedIn'),
+      showGithub: valueOf('showGithub'),
+      showYoutube: valueOf('showYoutube'),
+      showInstagram: valueOf('showInstagram'),
+      showTiktok: valueOf('showTiktok'),
+    );
   }
 
   Future<void> _saveAll() async {
+    if (isSavingProfileDraft || !_hasUnsavedEditProfileChanges) return;
+
     final accountType = profileData?['accountType'] as String? ?? 'user';
-    if (accountType == 'user') {
-      await _saveUserProfile();
-    } else {
-      await _saveCompanyProfile();
+
+    setState(() => isSavingProfileDraft = true);
+
+    try {
+      if (accountType == 'user') {
+        await _saveUserProfile();
+        await _saveUserExperiences();
+        await _saveUserEducations();
+        await _saveUserSkills();
+        await _saveUserProjects();
+      } else {
+        await _saveCompanyProfile();
+      }
+
+      await _saveVisibilityDraft();
+
+      if (!mounted) return;
+      setState(() {
+        _captureEditProfileBaseline();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t(widget.lang, 'saveChanges'))),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } on StateError catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t(currentLang, 'loginGenericError'))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isSavingProfileDraft = false);
+      }
     }
   }
 
@@ -500,7 +1591,122 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     if (!mounted) return;
-    setState(() => selectedTab = tab);
+    setState(() {
+      selectedTab = tab;
+      if (tab != SettingsTab.editProfile) {
+        _selectedEditProfileSubcategory = null;
+      }
+    });
+  }
+
+  Future<void> _openEditProfileTab({String? sectionId}) async {
+    if (selectedTab != SettingsTab.editProfile) {
+      await _handleTabChange(SettingsTab.editProfile);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedEditProfileSubcategory = sectionId;
+      if (sectionId != null) {
+        _editProfileSectionExpanded[sectionId] = true;
+      }
+    });
+  }
+
+  void _toggleSidebarCollapsed() {
+    setState(() => isSidebarCollapsed = !isSidebarCollapsed);
+  }
+
+  void _setSettingsState(VoidCallback fn) {
+    if (!mounted) return;
+    setState(fn);
+  }
+
+  List<({String id, String label, IconData icon})> _editProfileSectionsForAccountType(
+    String accountType,
+  ) {
+    if (accountType == 'company') {
+      return [
+        (
+          id: 'account',
+          label: t(widget.lang, 'accountDetails'),
+          icon: Icons.badge_outlined,
+        ),
+        (
+          id: 'company',
+          label: t(widget.lang, 'companyDetails'),
+          icon: Icons.apartment_rounded,
+        ),
+        (
+          id: 'hr',
+          label: t(widget.lang, 'hrDetails'),
+          icon: Icons.groups_2_outlined,
+        ),
+      ];
+    }
+
+    return [
+      (
+        id: 'account',
+        label: t(widget.lang, 'accountDetails'),
+        icon: Icons.badge_outlined,
+      ),
+      (
+        id: 'location',
+        label: t(widget.lang, 'locationDetails'),
+        icon: Icons.location_on_outlined,
+      ),
+      (
+        id: 'profile',
+        label: t(widget.lang, 'profileDetails'),
+        icon: Icons.person_outline_rounded,
+      ),
+      (
+        id: 'experience',
+        label: t(widget.lang, 'experienceSection'),
+        icon: Icons.work_outline_rounded,
+      ),
+      (
+        id: 'skills',
+        label: t(widget.lang, 'skillsSection'),
+        icon: Icons.psychology_alt_outlined,
+      ),
+      (
+        id: 'skills_languages',
+        label: t(widget.lang, 'skillsLanguages'),
+        icon: Icons.language_rounded,
+      ),
+      (
+        id: 'skills_soft',
+        label: t(widget.lang, 'skillsSoft'),
+        icon: Icons.self_improvement_rounded,
+      ),
+      (
+        id: 'skills_hard',
+        label: t(widget.lang, 'skillsHard'),
+        icon: Icons.memory_rounded,
+      ),
+      (
+        id: 'education',
+        label: t(widget.lang, 'educationSection'),
+        icon: Icons.school_outlined,
+      ),
+      (
+        id: 'projects',
+        label: t(widget.lang, 'projectsSection'),
+        icon: Icons.developer_board_outlined,
+      ),
+      (
+        id: 'social',
+        label: t(widget.lang, 'socialLinks'),
+        icon: Icons.share_outlined,
+      ),
+      (
+        id: 'attachments',
+        label: t(widget.lang, 'attachments'),
+        icon: Icons.attach_file_rounded,
+      ),
+    ];
   }
 
   Future<void> _onTwoFactorToggleChanged(bool enabled) async {
@@ -807,42 +2013,10 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _updateVisibility(String field, bool value) async {
-    if (accessToken == null) return;
-
+  void _updateVisibility(String field, bool value) {
     setState(() {
       visibility[field] = value;
     });
-
-    try {
-      await ApiService.updateProfileVisibility(
-        accessToken: accessToken!,
-        showGender: field == 'showGender' ? value : null,
-        showBirthDate: field == 'showBirthDate' ? value : null,
-        showJobTitle: field == 'showJobTitle' ? value : null,
-        showPhone: field == 'showPhone' ? value : null,
-        showCountry: field == 'showCountry' ? value : null,
-        showCounty: field == 'showCounty' ? value : null,
-        showCity: field == 'showCity' ? value : null,
-        showYearsExperience: field == 'showYearsExperience' ? value : null,
-        showEducationLevel: field == 'showEducationLevel' ? value : null,
-        showEducationInstitution: field == 'showEducationInstitution'
-            ? value
-            : null,
-        showCompanyName: field == 'showCompanyName' ? value : null,
-        showCompanyCounty: field == 'showCompanyCounty' ? value : null,
-        showCompanyCity: field == 'showCompanyCity' ? value : null,
-        showHrFirstName: field == 'showHrFirstName' ? value : null,
-        showHrLastName: field == 'showHrLastName' ? value : null,
-        showHrEmail: field == 'showHrEmail' ? value : null,
-        showCv: field == 'showCv' ? value : null,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        visibility[field] = !value;
-      });
-    }
   }
 
   Future<void> _uploadCv() async {
@@ -901,223 +2075,6 @@ class _SettingsPageState extends State<SettingsPage> {
             : errorMessage != null
             ? Center(child: Text(errorMessage!))
             : _buildSettingsLayout(),
-      ),
-    );
-  }
-
-  Widget _buildSettingsLayout() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 960;
-
-        if (isCompact) {
-          return Column(
-            children: [
-              _buildCompactTabs(),
-              const SizedBox(height: 12),
-              Expanded(
-                child: SingleChildScrollView(child: _buildRightPanelContent()),
-              ),
-            ],
-          );
-        }
-
-        final sidebarWidth = isSidebarCollapsed ? 92.0 : 290.0;
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: sidebarWidth,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  _buildSidebar(),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Transform.translate(
-                      offset: const Offset(16, 0),
-                      child: _buildSidebarToggle(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 24),
-            Expanded(
-              child: SingleChildScrollView(child: _buildRightPanelContent()),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildSidebar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSidebarItem(
-            icon: Icons.phonelink_lock,
-            label: t(widget.lang, 'settingsTabSecurityVerification'),
-            tab: SettingsTab.twoFactor,
-          ),
-          _buildSidebarItem(
-            icon: Icons.lock_reset,
-            label: t(widget.lang, 'settingsTabChangePassword'),
-            tab: SettingsTab.changePassword,
-          ),
-          _buildSidebarItem(
-            icon: Icons.manage_accounts,
-            label: t(widget.lang, 'settingsTabEditProfile'),
-            tab: SettingsTab.editProfile,
-          ),
-          _buildSidebarItem(
-            icon: Icons.brightness_6,
-            label: t(widget.lang, 'settingsTabThemeDefault'),
-            tab: SettingsTab.themePreference,
-          ),
-          _buildSidebarItem(
-            icon: Icons.delete_forever,
-            label: t(widget.lang, 'settingsTabDeleteAccount'),
-            tab: SettingsTab.deleteAccount,
-            isDanger: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarItem({
-    required IconData icon,
-    required String label,
-    required SettingsTab tab,
-    bool isDanger = false,
-  }) {
-    final selected = selectedTab == tab;
-    final dangerColor = Colors.red.shade600;
-
-    final content = InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        unawaited(_handleTabChange(tab));
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: selected
-              ? (isDanger
-                    ? Colors.red.withValues(alpha: 0.2)
-                    : Theme.of(
-                        context,
-                      ).colorScheme.primary.withValues(alpha: 0.18))
-              : null,
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: isDanger ? dangerColor : null),
-            if (!isSidebarCollapsed) ...[
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(color: isDanger ? dangerColor : null),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-
-    if (!isSidebarCollapsed) return content;
-
-    return Tooltip(message: label, child: content);
-  }
-
-  Widget _buildSidebarToggle() {
-    return Material(
-      color: Theme.of(context).colorScheme.primary,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: () => setState(() => isSidebarCollapsed = !isSidebarCollapsed),
-        child: SizedBox(
-          width: 32,
-          height: 32,
-          child: Icon(
-            isSidebarCollapsed
-                ? Icons.arrow_forward_ios
-                : Icons.arrow_back_ios_new,
-            size: 14,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompactTabs() {
-    final tabs = [
-      (
-        SettingsTab.twoFactor,
-        Icons.phonelink_lock,
-        t(widget.lang, 'settingsChipSecurity'),
-      ),
-      (
-        SettingsTab.changePassword,
-        Icons.lock_reset,
-        t(widget.lang, 'settingsChipPassword'),
-      ),
-      (
-        SettingsTab.editProfile,
-        Icons.manage_accounts,
-        t(widget.lang, 'settingsTabEditProfile'),
-      ),
-      (
-        SettingsTab.themePreference,
-        Icons.brightness_6,
-        t(widget.lang, 'settingsChipTheme'),
-      ),
-      (
-        SettingsTab.deleteAccount,
-        Icons.delete_forever,
-        t(widget.lang, 'settingsChipDelete'),
-      ),
-    ];
-
-    return SizedBox(
-      height: 50,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemBuilder: (context, index) {
-          final item = tabs[index];
-          final tab = item.$1;
-          final selected = selectedTab == tab;
-          return ChoiceChip(
-            selected: selected,
-            onSelected: (_) {
-              unawaited(_handleTabChange(tab));
-            },
-            avatar: Icon(item.$2, size: 18),
-            label: Text(item.$3),
-          );
-        },
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemCount: tabs.length,
       ),
     );
   }
@@ -1181,1118 +2138,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTwoFactorPanel() {
-    final qrDataUrl = twoFactorQrDataUrl;
-
-    return _sectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t(currentLang, 'settingsTabSecurityVerification'),
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          Builder(
-            builder: (context) {
-              final twoFactorSection = Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.18),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t(currentLang, 'twoFactorTitle'),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      t(currentLang, 'twoFactorDescription'),
-                      style: TextStyle(color: Theme.of(context).hintColor),
-                    ),
-                    const SizedBox(height: 10),
-                    SwitchListTile(
-                      value: _isTwoFactorFlowActive,
-                      onChanged: isTwoFactorBusy
-                          ? null
-                          : _onTwoFactorToggleChanged,
-                      title: Text(t(currentLang, 'enable2fa')),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _twoFactorEnabled
-                          ? t(currentLang, 'twoFactorStatusEnabled')
-                          : t(currentLang, 'twoFactorStatusDisabled'),
-                      style: TextStyle(
-                        color: _twoFactorEnabled
-                            ? Colors.green
-                            : Theme.of(context).hintColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (_isTwoFactorFlowActive && !_twoFactorEnabled) ...[
-                      if (qrDataUrl == null)
-                        ElevatedButton(
-                          onPressed: isTwoFactorBusy
-                              ? null
-                              : _startTwoFactorSetup,
-                          child: Text(t(currentLang, 'twoFactorGenerateQr')),
-                        )
-                      else ...[
-                        Text(t(currentLang, 'twoFactorScanHint')),
-                        const SizedBox(height: 10),
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            color: Colors.white,
-                            child: Image.network(
-                              qrDataUrl,
-                              width: 180,
-                              height: 180,
-                              errorBuilder: (_, _, _) => Text(
-                                t(currentLang, 'loginGenericError'),
-                                style: TextStyle(
-                                  color: Theme.of(context).hintColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (twoFactorManualEntryKey != null &&
-                            twoFactorManualEntryKey!.isNotEmpty) ...[
-                          Text(
-                            '${t(currentLang, 'twoFactorManualKey')}: ${twoFactorManualEntryKey!}',
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                        TextField(
-                          controller: twoFactorCodeCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: t(currentLang, 'twoFactorCode'),
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: isTwoFactorBusy ? null : _enableTwoFactor,
-                          child: Text(t(currentLang, 'twoFactorEnableButton')),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: isTwoFactorBusy
-                              ? null
-                              : _cancelTwoFactorSetup,
-                          child: Text(t(currentLang, 'cancel')),
-                        ),
-                      ],
-                    ] else if (_isTwoFactorFlowActive && _twoFactorEnabled) ...[
-                      TextField(
-                        controller: twoFactorCodeCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: t(currentLang, 'twoFactorCode'),
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: isTwoFactorBusy
-                            ? null
-                            : _regenerateBackupCodes,
-                        child: Text(
-                          t(currentLang, 'twoFactorGenerateBackupCodes'),
-                        ),
-                      ),
-                      if (generatedBackupCodes.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          t(currentLang, 'twoFactorBackupCodesGeneratedHint'),
-                          style: TextStyle(color: Theme.of(context).hintColor),
-                        ),
-                      ],
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        onPressed: isTwoFactorBusy ? null : _disableTwoFactor,
-                        child: Text(t(currentLang, 'twoFactorDisableButton')),
-                      ),
-                    ],
-                  ],
-                ),
-              );
-
-              final verificationSection = Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.18),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t(currentLang, 'emailVerificationTitle'),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      t(currentLang, 'emailVerificationDescription'),
-                      style: TextStyle(color: Theme.of(context).hintColor),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      t(currentLang, 'emailVerificationResendAfterThreeDays'),
-                      style: TextStyle(
-                        color: Theme.of(context).hintColor,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _isEmailVerified
-                          ? t(currentLang, 'emailVerificationStatusVerified')
-                          : t(currentLang, 'emailVerificationStatusUnverified'),
-                      style: TextStyle(
-                        color: _isEmailVerified
-                            ? Colors.green
-                            : Theme.of(context).colorScheme.secondary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: (_isEmailVerified || isEmailVerificationBusy)
-                          ? null
-                          : _resendVerificationEmail,
-                      icon: const Icon(Icons.mark_email_unread_outlined),
-                      label: Text(
-                        t(currentLang, 'emailVerificationResendButton'),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-
-              return Column(
-                children: [
-                  SizedBox(width: double.infinity, child: twoFactorSection),
-                  const SizedBox(height: 12),
-                  SizedBox(width: double.infinity, child: verificationSection),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChangePasswordPanel() {
-    return _sectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t(widget.lang, 'changePasswordTitle'),
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: currentPasswordCtrl,
-            obscureText: !showCurrentPasswordWhilePressed,
-            decoration: InputDecoration(
-              labelText: t(widget.lang, 'currentPassword'),
-              border: const OutlineInputBorder(),
-              suffixIcon: _passwordHoldIcon(
-                isVisible: showCurrentPasswordWhilePressed,
-                onChanged: (visible) =>
-                    setState(() => showCurrentPasswordWhilePressed = visible),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: newPasswordCtrl,
-            obscureText: !showNewPasswordWhilePressed,
-            decoration: InputDecoration(
-              labelText: t(widget.lang, 'newPassword'),
-              border: const OutlineInputBorder(),
-              suffixIcon: _passwordHoldIcon(
-                isVisible: showNewPasswordWhilePressed,
-                onChanged: (visible) =>
-                    setState(() => showNewPasswordWhilePressed = visible),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: confirmPasswordCtrl,
-            obscureText: !showConfirmPasswordWhilePressed,
-            decoration: InputDecoration(
-              labelText: t(widget.lang, 'confirmNewPassword'),
-              border: const OutlineInputBorder(),
-              suffixIcon: _passwordHoldIcon(
-                isVisible: showConfirmPasswordWhilePressed,
-                onChanged: (visible) =>
-                    setState(() => showConfirmPasswordWhilePressed = visible),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(t(widget.lang, 'passwordChangeSoon'))),
-              );
-            },
-            child: Text(t(widget.lang, 'saveChanges')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditProfilePanel() {
-    final accountType = profileData?['accountType'] as String? ?? 'user';
-    final user = profileData?['user'] as Map<String, dynamic>? ?? {};
-    final companyProfile =
-        profileData?['companyProfile'] as Map<String, dynamic>? ?? {};
-
-    return _sectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: Colors.white,
-                foregroundImage: avatarBytes != null
-                    ? MemoryImage(avatarBytes!)
-                    : null,
-                child: avatarBytes == null
-                    ? const Icon(
-                        Icons.person,
-                        color: Colors.deepPurple,
-                        size: 30,
-                      )
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  t(widget.lang, 'settings'),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: _saveAll,
-                child: Text(t(widget.lang, 'saveAll')),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      settings: const RouteSettings(name: '/profile'),
-                      builder: (_) => ProfilePage(
-                        lang: widget.lang,
-                        isDark: widget.isDark,
-                        onLangChange: widget.onLangChange,
-                        onThemeChange: widget.onThemeChange,
-                        onLogout: widget.onLogout,
-                      ),
-                    ),
-                  );
-                },
-                child: Text(t(widget.lang, 'previewProfile')),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _groupedSection(
-            title: t(widget.lang, 'accountDetails'),
-            children: [
-              _readOnlyRow(
-                t(widget.lang, 'first'),
-                user['firstName']?.toString() ?? '-',
-                alwaysOpen: true,
-              ),
-              _readOnlyRow(
-                t(widget.lang, 'last'),
-                user['lastName']?.toString() ?? '-',
-                alwaysOpen: true,
-              ),
-              _readOnlyRow(
-                t(widget.lang, 'email'),
-                user['email']?.toString() ?? '-',
-                alwaysOpen: true,
-              ),
-              _readOnlyRow(
-                t(widget.lang, 'profilePhoto'),
-                avatarBytes != null
-                    ? t(widget.lang, 'photoSet')
-                    : t(widget.lang, 'photoMissing'),
-                alwaysOpen: true,
-              ),
-              _readOnlyRow(
-                t(widget.lang, 'password'),
-                '********',
-                alwaysLocked: true,
-                obscure: true,
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        t(widget.lang, 'gender'),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 5,
-                      child: DropdownButtonFormField<String>(
-                        initialValue: accountGender,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'male',
-                            child: Text(t(widget.lang, 'genderMale')),
-                          ),
-                          DropdownMenuItem(
-                            value: 'female',
-                            child: Text(t(widget.lang, 'genderFemale')),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() => accountGender = value);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _visibilityToggle(visibilityKey: 'showGender'),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        t(widget.lang, 'birthDate'),
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 5,
-                      child: InkWell(
-                        onTap: _pickAccountBirthDate,
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            border: const OutlineInputBorder(),
-                            hintText: t(widget.lang, 'pickBirthDate'),
-                            suffixIcon: const Icon(Icons.calendar_month),
-                          ),
-                          child: Text(
-                            accountBirthDate == null
-                                ? t(widget.lang, 'pickBirthDate')
-                                : _formatBirthDate(accountBirthDate!),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _visibilityToggle(visibilityKey: 'showBirthDate'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          if (accountType == 'user') ...[
-            const SizedBox(height: 16),
-            _groupedSection(
-              title: t(widget.lang, 'locationDetails'),
-              children: [
-                _phoneRow(),
-                _dropdownRow(
-                  label: t(widget.lang, 'country'),
-                  visibilityKey: 'showCountry',
-                  child: DropdownMenu<String>(
-                    initialSelection: userCountry,
-                    width: double.infinity,
-                    enabled: false,
-                    dropdownMenuEntries: RomaniaLocations.countries
-                        .map(
-                          (value) =>
-                              DropdownMenuEntry(value: value, label: value),
-                        )
-                        .toList(),
-                    onSelected: null,
-                  ),
-                ),
-                _dropdownRow(
-                  label: t(widget.lang, 'county'),
-                  visibilityKey: 'showCounty',
-                  child: DropdownMenu<String>(
-                    key: ValueKey('settings_county_${userCounty ?? 'none'}'),
-                    initialSelection: userCounty,
-                    width: double.infinity,
-                    enableSearch: true,
-                    enableFilter: true,
-                    requestFocusOnTap: true,
-                    dropdownMenuEntries: RomaniaLocations.counties
-                        .map(
-                          (value) =>
-                              DropdownMenuEntry(value: value, label: value),
-                        )
-                        .toList(),
-                    onSelected: (value) {
-                      setState(() {
-                        userCounty = value;
-                        userCity = null;
-                      });
-                    },
-                  ),
-                ),
-                _dropdownRow(
-                  label: t(widget.lang, 'city'),
-                  visibilityKey: 'showCity',
-                  child: DropdownMenu<String>(
-                    key: ValueKey('settings_city_${userCounty ?? 'none'}'),
-                    initialSelection: userCity,
-                    width: double.infinity,
-                    enableSearch: true,
-                    enableFilter: true,
-                    requestFocusOnTap: true,
-                    dropdownMenuEntries:
-                        RomaniaLocations.localitiesForCounty(userCounty)
-                            .map(
-                              (value) =>
-                                  DropdownMenuEntry(value: value, label: value),
-                            )
-                            .toList(),
-                    onSelected: (value) => setState(() => userCity = value),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _groupedSection(
-              title: t(widget.lang, 'profileDetails'),
-              children: [
-                _editableRow(
-                  label: t(widget.lang, 'professionalTitle'),
-                  controller: professionalTitleCtrl,
-                  visibilityKey: 'showJobTitle',
-                ),
-                _editableRow(
-                  label: t(widget.lang, 'yearsExperience'),
-                  controller: yearsExperienceCtrl,
-                  visibilityKey: 'showYearsExperience',
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(2),
-                  ],
-                ),
-                _dropdownRow(
-                  label: t(widget.lang, 'educationLevel'),
-                  visibilityKey: 'showEducationLevel',
-                  child: DropdownMenu<String>(
-                    key: ValueKey('settings_edu_${userEducationLevel ?? 'none'}'),
-                    initialSelection: userEducationLevel,
-                    width: double.infinity,
-                    enableSearch: true,
-                    enableFilter: true,
-                    requestFocusOnTap: true,
-                    dropdownMenuEntries: _educationLevels
-                        .map(
-                          (value) =>
-                              DropdownMenuEntry(value: value, label: value),
-                        )
-                        .toList(),
-                    onSelected: (value) =>
-                        setState(() => userEducationLevel = value),
-                  ),
-                ),
-                _editableRow(
-                  label: t(widget.lang, 'lastEducationInstitution'),
-                  controller: educationInstitutionCtrl,
-                  visibilityKey: 'showEducationInstitution',
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _groupedSection(
-              title: t(widget.lang, 'attachments'),
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: Text(t(widget.lang, 'cvAttachmentSection'))),
-                    ElevatedButton(
-                      onPressed: _uploadCv,
-                      child: Text(t(widget.lang, 'uploadCv')),
-                    ),
-                    const SizedBox(width: 10),
-                    _visibilityToggle(visibilityKey: 'showCv'),
-                  ],
-                ),
-              ],
-            ),
-          ],
-
-          if (accountType == 'company') ...[
-            const SizedBox(height: 16),
-            _groupedSection(
-              title: t(widget.lang, 'companyDetails'),
-              children: [
-                _editableRow(
-                  label: t(widget.lang, 'companyName'),
-                  controller: companyNameCtrl,
-                  visibilityKey: 'showCompanyName',
-                ),
-                _editableRow(
-                  label: t(widget.lang, 'county'),
-                  controller: companyCountyCtrl,
-                  visibilityKey: 'showCompanyCounty',
-                ),
-                _editableRow(
-                  label: t(widget.lang, 'city'),
-                  controller: companyCityCtrl,
-                  visibilityKey: 'showCompanyCity',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _groupedSection(
-              title: t(widget.lang, 'hrDetails'),
-              children: [
-                _readOnlyRow(
-                  t(widget.lang, 'hrFirstName'),
-                  companyProfile['hrFirstName']?.toString() ?? '-',
-                  alwaysOpen: true,
-                ),
-                _readOnlyRow(
-                  t(widget.lang, 'hrLastName'),
-                  companyProfile['hrLastName']?.toString() ?? '-',
-                  alwaysOpen: true,
-                ),
-                _readOnlyRow(
-                  t(widget.lang, 'hrEmail'),
-                  companyProfile['hrEmail']?.toString() ?? '-',
-                  alwaysOpen: true,
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeleteAccountPanel() {
-    return _sectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t(widget.lang, 'deleteAccountTitle'),
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            t(widget.lang, 'deleteAccountDescription'),
-            style: TextStyle(color: Theme.of(context).hintColor),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _openDeleteAccountDialog,
-            icon: const Icon(Icons.warning_amber_rounded),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            label: Text(t(widget.lang, 'deleteAccountButton')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _passwordHoldIcon({
-    required bool isVisible,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => onChanged(true),
-      onTapUp: (_) => onChanged(false),
-      onTapCancel: () => onChanged(false),
-      child: Tooltip(
-        message: t(widget.lang, 'showPassword'),
-        child: Icon(isVisible ? Icons.visibility : Icons.visibility_off),
-      ),
-    );
-  }
-
-  Future<void> _openDeleteAccountDialog() async {
-    final user = profileData?['user'] as Map<String, dynamic>? ?? {};
-    final accountEmail = user['email']?.toString().trim().toLowerCase() ?? '';
-    bool areDeleteCredentialsValid = false;
-    bool isDeleteCredentialsValidating = false;
-    int deleteValidationVersion = 0;
-    Timer? deleteValidationDebounce;
-
-    Future<void> validateDeleteCredentials(StateSetter setDialogState) async {
-      final enteredEmail = deleteAccountEmailCtrl.text.trim().toLowerCase();
-      final pass1 = deleteAccountPasswordCtrl.text;
-      final pass2 = deleteAccountPasswordConfirmCtrl.text;
-
-      final hasAllValues =
-          enteredEmail.isNotEmpty && pass1.isNotEmpty && pass2.isNotEmpty;
-      final passesBasicChecks =
-          hasAllValues && enteredEmail == accountEmail && pass1 == pass2;
-
-      if (!passesBasicChecks) {
-        setDialogState(() {
-          areDeleteCredentialsValid = false;
-          isDeleteCredentialsValidating = false;
-        });
-        return;
-      }
-
-      final currentVersion = ++deleteValidationVersion;
-      setDialogState(() {
-        isDeleteCredentialsValidating = true;
-        areDeleteCredentialsValid = false;
-      });
-
-      try {
-        await ApiService.login(email: enteredEmail, password: pass1);
-
-        if (!mounted || currentVersion != deleteValidationVersion) return;
-
-        setDialogState(() {
-          isDeleteCredentialsValidating = false;
-          areDeleteCredentialsValid = true;
-        });
-      } catch (_) {
-        if (!mounted || currentVersion != deleteValidationVersion) return;
-
-        setDialogState(() {
-          isDeleteCredentialsValidating = false;
-          areDeleteCredentialsValid = false;
-        });
-      }
-    }
-
-    void queueDeleteCredentialsValidation(StateSetter setDialogState) {
-      deleteValidationDebounce?.cancel();
-      deleteValidationDebounce = Timer(
-        const Duration(milliseconds: 450),
-        () => validateDeleteCredentials(setDialogState),
-      );
-    }
-
-    deleteAccountEmailCtrl.clear();
-    deleteAccountPasswordCtrl.clear();
-    deleteAccountPasswordConfirmCtrl.clear();
-    setState(() {
-      showDeletePasswordWhilePressed = false;
-      showDeletePasswordConfirmWhilePressed = false;
-    });
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(t(widget.lang, 'deleteAccountDialogTitle')),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      t(widget.lang, 'deleteAccountDialogDescription'),
-                      style: TextStyle(color: Theme.of(context).hintColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: deleteAccountEmailCtrl,
-                      onChanged: (_) =>
-                          queueDeleteCredentialsValidation(setDialogState),
-                      decoration: InputDecoration(
-                        labelText: t(widget.lang, 'confirmEmail'),
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: deleteAccountPasswordCtrl,
-                      onChanged: (_) =>
-                          queueDeleteCredentialsValidation(setDialogState),
-                      obscureText: !showDeletePasswordWhilePressed,
-                      decoration: InputDecoration(
-                        labelText: t(widget.lang, 'password'),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapDown: (_) => setDialogState(
-                            () => showDeletePasswordWhilePressed = true,
-                          ),
-                          onTapUp: (_) => setDialogState(
-                            () => showDeletePasswordWhilePressed = false,
-                          ),
-                          onTapCancel: () => setDialogState(
-                            () => showDeletePasswordWhilePressed = false,
-                          ),
-                          child: Tooltip(
-                            message: t(widget.lang, 'showPassword'),
-                            child: Icon(
-                              showDeletePasswordWhilePressed
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: deleteAccountPasswordConfirmCtrl,
-                      onChanged: (_) =>
-                          queueDeleteCredentialsValidation(setDialogState),
-                      obscureText: !showDeletePasswordConfirmWhilePressed,
-                      decoration: InputDecoration(
-                        labelText: t(widget.lang, 'confirmPasswordAgain'),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapDown: (_) => setDialogState(
-                            () => showDeletePasswordConfirmWhilePressed = true,
-                          ),
-                          onTapUp: (_) => setDialogState(
-                            () => showDeletePasswordConfirmWhilePressed = false,
-                          ),
-                          onTapCancel: () => setDialogState(
-                            () => showDeletePasswordConfirmWhilePressed = false,
-                          ),
-                          child: Tooltip(
-                            message: t(widget.lang, 'showPassword'),
-                            child: Icon(
-                              showDeletePasswordConfirmWhilePressed
-                                  ? Icons.visibility
-                                  : Icons.visibility_off,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (isDeleteCredentialsValidating) ...[
-                      const SizedBox(height: 10),
-                      const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(t(widget.lang, 'cancel')),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                  ),
-                  onPressed: areDeleteCredentialsValid
-                      ? () {
-                          final enteredEmail = deleteAccountEmailCtrl.text
-                              .trim()
-                              .toLowerCase();
-                          final pass1 = deleteAccountPasswordCtrl.text;
-                          final pass2 = deleteAccountPasswordConfirmCtrl.text;
-
-                          if (enteredEmail != accountEmail) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  t(widget.lang, 'deleteAccountEmailMismatch'),
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          if (pass1 != pass2) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  t(
-                                    widget.lang,
-                                    'deleteAccountPasswordMismatch',
-                                  ),
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          Navigator.of(dialogContext).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                t(widget.lang, 'deleteAccountFlowSoon'),
-                              ),
-                            ),
-                          );
-                        }
-                      : null,
-                  child: Text(t(widget.lang, 'deleteAccountButton')),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    deleteValidationDebounce?.cancel();
-  }
-
-  Widget _sectionCard({required Widget child}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.74),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-        ),
-      ),
-      child: child,
-    );
-  }
-
-  Widget _subTitle(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-
-  Widget _groupedSection({required String title, required List<Widget> children}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _subTitle(title),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  Widget _phoneRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              t(widget.lang, 'phone'),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(
-            flex: 5,
-            child: TextField(
-              controller: phoneCtrl,
-              keyboardType: TextInputType.phone,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(9),
-              ],
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                prefixText: '+40 ',
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          _visibilityToggle(visibilityKey: 'showPhone'),
-        ],
-      ),
-    );
-  }
-
-  Widget _dropdownRow({
-    required String label,
-    required Widget child,
-    required String visibilityKey,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(flex: 5, child: child),
-          const SizedBox(width: 10),
-          _visibilityToggle(visibilityKey: visibilityKey),
-        ],
-      ),
-    );
-  }
-
-  Widget _readOnlyRow(
-    String label,
-    String value, {
-    bool alwaysOpen = false,
-    bool alwaysLocked = false,
-    bool obscure = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(
-            flex: 5,
-            child: TextFormField(
-              initialValue: value,
-              enabled: false,
-              obscureText: obscure,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-          ),
-          const SizedBox(width: 10),
-          _visibilityToggle(
-            visibilityKey: 'disabled',
-            isLocked: alwaysLocked,
-            isAlwaysOpen: alwaysOpen,
-            enabled: false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _editableRow({
-    required String label,
-    required TextEditingController controller,
-    required String visibilityKey,
-    TextInputType keyboardType = TextInputType.text,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(
-            flex: 5,
-            child: TextField(
-              controller: controller,
-              keyboardType: keyboardType,
-              inputFormatters: inputFormatters,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-          ),
-          const SizedBox(width: 10),
-          _visibilityToggle(visibilityKey: visibilityKey),
-        ],
-      ),
-    );
-  }
-
-  Widget _visibilityToggle({
-    required String visibilityKey,
-    bool isLocked = false,
-    bool isAlwaysOpen = false,
-    bool enabled = true,
-  }) {
-    final isOpen = isAlwaysOpen ? true : (visibility[visibilityKey] ?? false);
-    final isDisabled = !enabled || isLocked || isAlwaysOpen;
-
-    return ToggleButtons(
-      isSelected: [isOpen, !isOpen],
-      onPressed: isDisabled
-          ? null
-          : (index) {
-              final next = index == 0;
-              _updateVisibility(visibilityKey, next);
-            },
-      children: const [Icon(Icons.lock_open), Icon(Icons.lock)],
     );
   }
 

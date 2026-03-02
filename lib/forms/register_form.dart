@@ -82,15 +82,10 @@ class RegisterFormWidget extends StatefulWidget {
 class _RegisterFormWidgetState extends State<RegisterFormWidget> {
   int registrationStep = 1;
   String? accountGender;
-  DateTime? accountBirthDate;
   bool hrEmailTouched = false;
   bool hrEmailValid = false;
-  String? idAttachmentName;
-  Uint8List? idAttachmentBytes;
   final userPhoneCtrl = TextEditingController();
   final userTitleCtrl = TextEditingController();
-  final userYearsExperienceCtrl = TextEditingController();
-  final userEducationInstitutionCtrl = TextEditingController();
   bool userPhoneTouched = false;
   bool userPhoneValid = false;
   bool showUserStep2Errors = false;
@@ -102,18 +97,9 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
   String userCountry = 'Romania';
   String? userCounty;
   String? userCity;
-  String? userEducationLevel;
   bool showRegisterPasswordWhilePressed = false;
   bool showConfirmPasswordWhilePressed = false;
   bool isCheckingStepOneEmail = false;
-
-  List<String> get educationLevels => [
-    t(widget.lang, 'educationHighSchool'),
-    t(widget.lang, 'educationPostSecondary'),
-    t(widget.lang, 'educationBachelor'),
-    t(widget.lang, 'educationMaster'),
-    t(widget.lang, 'educationDoctorate'),
-  ];
 
   bool get _isAccountTypeLocked => registrationStep > 1;
 
@@ -122,15 +108,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
       registrationStep = 1;
       hrEmailTouched = false;
       hrEmailValid = false;
-      idAttachmentName = null;
-      idAttachmentBytes = null;
 
       userPhoneCtrl.clear();
       userTitleCtrl.clear();
-      userYearsExperienceCtrl.clear();
-      userEducationInstitutionCtrl.clear();
       accountGender = null;
-      accountBirthDate = null;
       userPhoneTouched = false;
       userPhoneValid = false;
       userCvAttachmentName = null;
@@ -138,7 +119,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
       userCountry = 'Romania';
       userCounty = null;
       userCity = null;
-      userEducationLevel = null;
     });
   }
 
@@ -146,8 +126,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
   void dispose() {
     userPhoneCtrl.dispose();
     userTitleCtrl.dispose();
-    userYearsExperienceCtrl.dispose();
-    userEducationInstitutionCtrl.dispose();
     super.dispose();
   }
 
@@ -164,9 +142,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     return hrFirst.isNotEmpty &&
         hrLast.isNotEmpty &&
         hrEmail.isNotEmpty &&
-        EmailValidator.validate(hrEmail) &&
-        idAttachmentName != null &&
-        idAttachmentBytes != null;
+        EmailValidator.validate(hrEmail);
   }
 
   bool get _hasUserRequiredData {
@@ -176,31 +152,8 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
         (userCounty?.trim().isNotEmpty ?? false) &&
         (userCity?.trim().isNotEmpty ?? false) &&
         userTitleCtrl.text.trim().isNotEmpty &&
-        userYearsExperienceCtrl.text.trim().isNotEmpty &&
-        userEducationLevel != null &&
-        userEducationInstitutionCtrl.text.trim().isNotEmpty &&
-        idAttachmentName != null &&
-        idAttachmentBytes != null &&
         userCvAttachmentName != null &&
         userCvAttachmentBytes != null;
-  }
-
-  Future<void> _pickIdAttachment() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp'],
-      allowMultiple: false,
-      withData: true,
-    );
-
-    if (!mounted) return;
-
-    if (result != null && result.files.isNotEmpty) {
-      setState(() {
-        idAttachmentName = result.files.first.name;
-        idAttachmentBytes = result.files.first.bytes;
-      });
-    }
   }
 
   Future<void> _pickUserCvAttachment() async {
@@ -255,7 +208,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
 
     if (!baseValid) return false;
 
-    final hasAccountBasics = accountGender != null && accountBirthDate != null;
+    final hasAccountBasics = accountGender != null;
 
     if (widget.isUser) {
       return widget.firstCtrl.text.trim().isNotEmpty &&
@@ -264,27 +217,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     }
 
     return widget.firstCtrl.text.trim().isNotEmpty && hasAccountBasics;
-  }
-
-  String _formatBirthDate(DateTime value) {
-    final year = value.year.toString().padLeft(4, '0');
-    final month = value.month.toString().padLeft(2, '0');
-    final day = value.day.toString().padLeft(2, '0');
-    return '$year-$month-$day';
-  }
-
-  Future<void> _pickBirthDate() async {
-    final now = DateTime.now();
-    final initial = accountBirthDate ?? DateTime(now.year - 24, 1, 1);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(1940, 1, 1),
-      lastDate: DateTime(now.year - 14, now.month, now.day),
-    );
-
-    if (picked == null || !mounted) return;
-    setState(() => accountBirthDate = picked);
   }
 
   Future<bool> _isStepOneEmailAvailable() async {
@@ -296,7 +228,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     });
 
     try {
-      final isAvailable = await ApiService.isEmailAvailable(email: email);
+      final isAvailable = await ApiService.isEmailAvailable(
+        email: email,
+        locale: widget.lang,
+      );
       if (!mounted) return false;
 
       if (!isAvailable) {
@@ -356,16 +291,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
         setState(() => showUserStep2Errors = true);
       }
     } else if (widget.isUser && registrationStep == 3) {
-      if (!_isUserStep3CoreValid()) {
-        setState(() => showUserStep3Errors = true);
-        return;
-      }
-
-      setState(() {
-        showUserStep3Errors = false;
-        registrationStep = 4;
-      });
-    } else if (widget.isUser && registrationStep == 4) {
       if (!_hasUserRequiredData) {
         setState(() => showUserStep3Errors = true);
         return;
@@ -390,16 +315,15 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             firstName: widget.firstCtrl.text.trim(),
             lastName: widget.lastCtrl.text.trim(),
             gender: accountGender ?? 'male',
-            birthDate: _formatBirthDate(accountBirthDate!),
             phone: '+40${userPhoneCtrl.text.trim()}',
             country: userCountry,
             county: userCounty ?? '',
             city: userCity ?? '',
             jobTitle: userTitleCtrl.text.trim(),
-            yearsExperience:
-                int.tryParse(userYearsExperienceCtrl.text.trim()) ?? 0,
-            educationLevel: userEducationLevel ?? '',
-            educationInstitution: userEducationInstitutionCtrl.text.trim(),
+            yearsExperience: 0,
+            educationLevel: '',
+            educationInstitution: '',
+            specialization: '',
             gdprVersion: 'v1',
             locale: widget.lang,
           );
@@ -407,9 +331,10 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
           final loginResult = await ApiService.login(
             email: widget.emailCtrl.text.trim(),
             password: widget.passCtrl.text,
+            locale: widget.lang,
           );
 
-          await _uploadUserAttachments(loginResult.accessToken);
+          await _uploadUserCvAttachment(loginResult.accessToken);
 
           if (!mounted) return;
           await _showRegisterSuccessDialog();
@@ -462,19 +387,17 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             hrLastName: widget.hrLastCtrl.text.trim(),
             hrEmail: widget.hrEmailCtrl.text.trim(),
             gender: accountGender ?? 'male',
-            birthDate: _formatBirthDate(accountBirthDate!),
             gdprVersion: 'v1',
             locale: widget.lang,
           );
 
           if (!mounted) return;
 
-          final loginResult = await ApiService.login(
+          await ApiService.login(
             email: widget.emailCtrl.text.trim(),
             password: widget.passCtrl.text,
+            locale: widget.lang,
           );
-
-          await _uploadCompanyAttachments(loginResult.accessToken);
 
           if (!mounted) return;
           await _showRegisterSuccessDialog();
@@ -514,13 +437,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
         userCountry.isNotEmpty &&
         (userCounty?.isNotEmpty ?? false) &&
         (userCity?.isNotEmpty ?? false);
-  }
-
-  bool _isUserStep3CoreValid() {
-    return userTitleCtrl.text.trim().isNotEmpty &&
-        userYearsExperienceCtrl.text.trim().isNotEmpty &&
-        userEducationLevel != null &&
-        userEducationInstitutionCtrl.text.trim().isNotEmpty;
   }
 
   void _goBack() {
@@ -569,8 +485,8 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
     );
   }
 
-  Future<void> _uploadUserAttachments(String token) async {
-    if (userCvAttachmentBytes == null || idAttachmentBytes == null) return;
+  Future<void> _uploadUserCvAttachment(String token) async {
+    if (userCvAttachmentBytes == null) return;
 
     await ApiService.uploadAttachment(
       accessToken: token,
@@ -579,28 +495,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
       bytes: userCvAttachmentBytes!,
       fileName: userCvAttachmentName ?? 'cv',
       mimeType: _guessMimeType(userCvAttachmentName ?? ''),
-    );
-
-    await ApiService.uploadAttachment(
-      accessToken: token,
-      attachmentType: 'id_document',
-      targetType: 'user',
-      bytes: idAttachmentBytes!,
-      fileName: idAttachmentName ?? 'id',
-      mimeType: _guessMimeType(idAttachmentName ?? ''),
-    );
-  }
-
-  Future<void> _uploadCompanyAttachments(String token) async {
-    if (idAttachmentBytes == null) return;
-
-    await ApiService.uploadAttachment(
-      accessToken: token,
-      attachmentType: 'id_document',
-      targetType: 'company',
-      bytes: idAttachmentBytes!,
-      fileName: idAttachmentName ?? 'id',
-      mimeType: _guessMimeType(idAttachmentName ?? ''),
     );
   }
 
@@ -772,6 +666,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             key: ValueKey('register_gender_${accountGender ?? 'none'}'),
             initialSelection: accountGender,
             width: double.infinity,
+            menuHeight: 280,
             label: Text(t(widget.lang, 'gender')),
             dropdownMenuEntries: [
               DropdownMenuEntry(
@@ -786,30 +681,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             onSelected: (value) {
               setState(() => accountGender = value);
             },
-          ),
-          SizedBox(height: spacing),
-
-          InkWell(
-            onTap: _pickBirthDate,
-            borderRadius: BorderRadius.circular(4),
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: t(widget.lang, 'birthDate'),
-                hintText: t(widget.lang, 'pickBirthDate'),
-                border: const OutlineInputBorder(),
-                isDense: isMobile,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: isMobile ? 8 : 12,
-                ),
-                suffixIcon: const Icon(Icons.calendar_month),
-              ),
-              child: Text(
-                accountBirthDate == null
-                    ? t(widget.lang, 'pickBirthDate')
-                    : _formatBirthDate(accountBirthDate!),
-              ),
-            ),
           ),
           SizedBox(height: spacing),
 
@@ -981,6 +852,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             initialSelection: userCountry,
             enabled: false,
             width: double.infinity,
+            menuHeight: 280,
             label: Text(t(widget.lang, "country")),
             dropdownMenuEntries: _entriesFrom(RomaniaLocations.countries),
             onSelected: null,
@@ -990,6 +862,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             key: ValueKey('county_${userCounty ?? 'none'}'),
             initialSelection: userCounty,
             width: double.infinity,
+            menuHeight: 280,
             enableSearch: true,
             enableFilter: true,
             requestFocusOnTap: true,
@@ -1021,6 +894,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
             key: ValueKey('city_${userCounty ?? 'none'}'),
             initialSelection: userCity,
             width: double.infinity,
+            menuHeight: 280,
             enableSearch: true,
             enableFilter: true,
             requestFocusOnTap: true,
@@ -1050,15 +924,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
           ],
         ] else ...[
           if (widget.isUser && registrationStep == 3) ...[
-            Text(
-              t(widget.lang, "userProfileSection"),
-              style: TextStyle(
-                fontSize: isMobile ? 16 : 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            SizedBox(height: spacing),
-
             TextField(
               controller: userTitleCtrl,
               onChanged: (v) {
@@ -1081,98 +946,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
               ),
             ),
             SizedBox(height: spacing),
-
-            TextField(
-              controller: userYearsExperienceCtrl,
-              onChanged: (value) {
-                setState(() {});
-              },
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(2),
-              ],
-              decoration: InputDecoration(
-                labelText: t(widget.lang, "yearsExperience"),
-                border: const OutlineInputBorder(),
-                enabledBorder: const OutlineInputBorder(),
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(width: 2),
-                ),
-                isDense: isMobile,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: isMobile ? 8 : 12,
-                ),
-              ),
-            ),
-            SizedBox(height: spacing),
-            DropdownMenu<String>(
-              key: ValueKey('education_${userEducationLevel ?? 'none'}'),
-              initialSelection: userEducationLevel,
-              width: double.infinity,
-              enableSearch: true,
-              enableFilter: true,
-              requestFocusOnTap: true,
-              label: Text(t(widget.lang, "educationLevel")),
-              dropdownMenuEntries: _entriesFrom(educationLevels),
-              onSelected: (value) {
-                if (value == null) return;
-                setState(() {
-                  userEducationLevel = value;
-                });
-              },
-            ),
-            if (showUserStep3Errors && userEducationLevel == null) ...[
-              SizedBox(height: spacing / 2),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  t(widget.lang, "selectedValueMissing"),
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: isMobile ? 12 : 13,
-                  ),
-                ),
-              ),
-            ],
-            SizedBox(height: spacing),
-
-            TextField(
-              controller: userEducationInstitutionCtrl,
-              onChanged: (v) {
-                final cap = widget.capitalizeWords(v);
-                userEducationInstitutionCtrl.value =
-                    userEducationInstitutionCtrl.value.copyWith(text: cap);
-                setState(() {});
-              },
-              decoration: InputDecoration(
-                labelText: t(widget.lang, "lastEducationInstitution"),
-                border: const OutlineInputBorder(),
-                enabledBorder: const OutlineInputBorder(),
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(width: 2),
-                ),
-                isDense: isMobile,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: isMobile ? 8 : 12,
-                ),
-              ),
-            ),
-            SizedBox(height: spacing),
-            if (showUserStep3Errors && !_isUserStep3CoreValid())
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  t(widget.lang, "completeAllFields"),
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: isMobile ? 12 : 13,
-                  ),
-                ),
-              ),
-          ] else if (widget.isUser && registrationStep == 4) ...[
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -1201,48 +974,11 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
               child: Text(
                 userCvAttachmentName == null
                     ? t(widget.lang, "cvAttachmentMissing")
-                    : "${t(widget.lang, "idAttachmentSelected")}: $userCvAttachmentName",
+                    : "${t(widget.lang, "cvAttachmentSelected")}: $userCvAttachmentName",
                 style: TextStyle(
                   color: userCvAttachmentName == null
                       ? Colors.red
                       : Colors.green,
-                  fontSize: isMobile ? 12 : 13,
-                ),
-              ),
-            ),
-            SizedBox(height: spacing),
-
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                t(widget.lang, "idAttachmentSection"),
-                style: TextStyle(
-                  fontSize: isMobile ? 14 : 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            SizedBox(height: spacing / 2),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickIdAttachment,
-                    icon: const Icon(Icons.upload_file),
-                    label: Text(t(widget.lang, "uploadIdImage")),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: spacing / 2),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                idAttachmentName == null
-                    ? t(widget.lang, "idAttachmentMissing")
-                    : "${t(widget.lang, "idAttachmentSelected")}: $idAttachmentName",
-                style: TextStyle(
-                  color: idAttachmentName == null ? Colors.red : Colors.green,
                   fontSize: isMobile ? 12 : 13,
                 ),
               ),
@@ -1392,43 +1128,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
                 ),
               ),
             ),
-            SizedBox(height: spacing),
-
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                t(widget.lang, "idAttachmentSection"),
-                style: TextStyle(
-                  fontSize: isMobile ? 14 : 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            SizedBox(height: spacing / 2),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _pickIdAttachment,
-                    icon: const Icon(Icons.upload_file),
-                    label: Text(t(widget.lang, "uploadIdImage")),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: spacing / 2),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                idAttachmentName == null
-                    ? t(widget.lang, "idAttachmentMissing")
-                    : "${t(widget.lang, "idAttachmentSelected")}: $idAttachmentName",
-                style: TextStyle(
-                  color: idAttachmentName == null ? Colors.red : Colors.green,
-                  fontSize: isMobile ? 12 : 13,
-                ),
-              ),
-            ),
           ],
         ],
 
@@ -1447,9 +1146,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
 
         // Buttons
         if ((widget.isUser &&
-                (registrationStep == 2 ||
-                    registrationStep == 3 ||
-                    registrationStep == 4)) ||
+                (registrationStep == 2 || registrationStep == 3)) ||
             (!widget.isUser && registrationStep == 2))
           Row(
             children: [
@@ -1484,8 +1181,6 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
                             (widget.isUser
                                 ? (registrationStep == 2
                                       ? _isUserStep2Valid()
-                                      : registrationStep == 3
-                                      ? _isUserStep3CoreValid()
                                       : _hasUserRequiredData)
                                 : _hasHrRequiredData)
                         ? _handleRegisterPress
@@ -1498,8 +1193,7 @@ class _RegisterFormWidgetState extends State<RegisterFormWidget> {
                     child: Text(
                       isSubmitting
                           ? '${t(widget.lang, "register")}...'
-                          : widget.isUser &&
-                                (registrationStep == 2 || registrationStep == 3)
+                          : widget.isUser && registrationStep == 2
                           ? t(widget.lang, "next")
                           : t(widget.lang, "register"),
                       style: TextStyle(

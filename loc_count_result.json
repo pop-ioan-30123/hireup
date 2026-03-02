@@ -1,0 +1,18 @@
+﻿{
+    "db":  {
+               "files":  19,
+               "lines":  619
+           },
+    "backend":  {
+                    "files":  49,
+                    "lines":  10723
+                },
+    "frontend":  {
+                     "files":  118,
+                     "lines":  21123
+                 },
+    "total":  {
+                  "files":  186,
+                  "lines":  32465
+              }
+}

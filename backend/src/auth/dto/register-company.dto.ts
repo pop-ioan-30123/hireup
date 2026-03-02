@@ -1,7 +1,8 @@
 import { IsDateString, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
+import { invalidEmailFormatMessage } from './email-validation-message';
 
 export class RegisterCompanyDto {
-  @IsEmail()
+  @IsEmail({}, { message: invalidEmailFormatMessage })
   email!: string;
 
   @IsString()
@@ -32,14 +33,15 @@ export class RegisterCompanyDto {
   @IsNotEmpty()
   hrLastName!: string;
 
-  @IsEmail()
+  @IsEmail({}, { message: invalidEmailFormatMessage })
   hrEmail!: string;
 
   @IsIn(['male', 'female'])
   gender!: 'male' | 'female';
 
+  @IsOptional()
   @IsDateString()
-  birthDate!: string;
+  birthDate?: string;
 
   @IsString()
   @IsNotEmpty()

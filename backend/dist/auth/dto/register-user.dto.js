@@ -11,11 +11,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RegisterUserDto = void 0;
 const class_validator_1 = require("class-validator");
+const email_validation_message_1 = require("./email-validation-message");
 class RegisterUserDto {
 }
 exports.RegisterUserDto = RegisterUserDto;
 __decorate([
-    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsEmail)({}, { message: email_validation_message_1.invalidEmailFormatMessage }),
     __metadata("design:type", String)
 ], RegisterUserDto.prototype, "email", void 0);
 __decorate([
@@ -38,6 +39,7 @@ __decorate([
     __metadata("design:type", String)
 ], RegisterUserDto.prototype, "gender", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], RegisterUserDto.prototype, "birthDate", void 0);
@@ -67,21 +69,27 @@ __decorate([
     __metadata("design:type", String)
 ], RegisterUserDto.prototype, "jobTitle", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(0),
     (0, class_validator_1.Max)(80),
     __metadata("design:type", Number)
 ], RegisterUserDto.prototype, "yearsExperience", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], RegisterUserDto.prototype, "educationLevel", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], RegisterUserDto.prototype, "educationInstitution", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], RegisterUserDto.prototype, "specialization", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),

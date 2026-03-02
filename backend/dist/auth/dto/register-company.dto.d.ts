@@ -9,7 +9,7 @@ export declare class RegisterCompanyDto {
     hrLastName: string;
     hrEmail: string;
     gender: 'male' | 'female';
-    birthDate: string;
+    birthDate?: string;
     gdprVersion: string;
     locale: string;
     ipAddress?: string;

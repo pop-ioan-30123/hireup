@@ -1,8 +1,13 @@
 import { IsEmail, IsOptional, IsString, Length } from 'class-validator';
+import { invalidEmailFormatMessage } from './email-validation-message';
 
 export class LoginDto {
-  @IsEmail()
+  @IsEmail({}, { message: invalidEmailFormatMessage })
   email!: string;
+
+  @IsOptional()
+  @IsString()
+  locale?: string;
 
   @IsString()
   @Length(8, 128)

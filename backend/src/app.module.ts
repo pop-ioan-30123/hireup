@@ -6,9 +6,11 @@ import { HealthController } from './health.controller';
 import { AuditContextMiddleware } from './security/audit-context.middleware';
 import { UploadsModule } from './uploads/uploads.module';
 import { ProfileModule } from './profile/profile.module';
+import { ActivitiesModule } from './activities/activities.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, AuthModule, UploadsModule, ProfileModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, AuthModule, UploadsModule, ProfileModule, ActivitiesModule, AuditModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

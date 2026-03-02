@@ -466,7 +466,7 @@ export class AuthService {
           payload.firstName.trim(),
           payload.lastName.trim(),
           payload.gender,
-          payload.birthDate,
+          payload.birthDate ?? null,
           payload.phone.trim(),
         ],
       );
@@ -487,18 +487,20 @@ export class AuthService {
             years_experience,
             education_level,
             education_institution,
+            specialization,
             country,
             county,
             city
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
           userId,
           payload.jobTitle.trim(),
-          payload.yearsExperience,
-          payload.educationLevel.trim(),
-          payload.educationInstitution.trim(),
+          payload.yearsExperience ?? 0,
+          payload.educationLevel?.trim() ?? '',
+          payload.educationInstitution?.trim() ?? '',
+          payload.specialization?.trim() ?? '',
           payload.country.trim(),
           payload.county.trim(),
           payload.city.trim(),
@@ -603,7 +605,7 @@ export class AuthService {
           payload.hrFirstName.trim(),
           payload.hrLastName.trim(),
           payload.gender,
-          payload.birthDate,
+          payload.birthDate ?? null,
         ],
       );
 
@@ -1130,6 +1132,22 @@ export class AuthService {
       CREATE INDEX IF NOT EXISTS idx_email_verification_token_user_active
       ON email_verification_token (user_id, expires_at)
       WHERE used_at IS NULL
+    `);
+
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_trigger
+          WHERE tgname = 'trg_audit_email_verification_token'
+            AND tgrelid = 'email_verification_token'::regclass
+        ) THEN
+          CREATE TRIGGER trg_audit_email_verification_token
+          AFTER INSERT OR UPDATE OR DELETE ON email_verification_token
+          FOR EACH ROW EXECUTE FUNCTION write_audit_log();
+        END IF;
+      END
+      $$;
     `);
   }
 

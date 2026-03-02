@@ -10,6 +10,19 @@
 				"get"
 			],
 			"isBackground": false
+		},
+		{
+			"label": "Flutter Run Chrome (High Memory)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$env:DART_VM_OPTIONS='--old_gen_heap_size=6144'; flutter run -d chrome --web-browser-flag=--js-flags=--max-old-space-size=6144 --web-browser-flag=--disable-extensions"
+			],
+			"isBackground": false
 		}
 	]
 }

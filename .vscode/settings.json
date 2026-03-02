@@ -3,8 +3,8 @@
     "dart.flutterSdkPath": "F:/flutter",
     "dart.sdkPath": "F:/flutter/bin/cache/dart-sdk",
     "dart.flutterRunAdditionalArgs": [
-        "--web-renderer",
-        "html"
+        "--web-browser-flag=--js-flags=--max-old-space-size=6144",
+        "--web-browser-flag=--disable-extensions"
     ],
     "terminal.integrated.defaultProfile.windows": "Command Prompt"
 }

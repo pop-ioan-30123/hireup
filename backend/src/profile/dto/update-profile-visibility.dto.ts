@@ -11,6 +11,14 @@ export class UpdateProfileVisibilityDto {
 
   @IsOptional()
   @IsBoolean()
+  showAccountCreatedDate?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showAccountCreatedTime?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   showJobTitle?: boolean;
 
   @IsOptional()
@@ -43,6 +51,10 @@ export class UpdateProfileVisibilityDto {
 
   @IsOptional()
   @IsBoolean()
+  showSpecialization?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   showCompanyName?: boolean;
 
   @IsOptional()
@@ -68,4 +80,32 @@ export class UpdateProfileVisibilityDto {
   @IsOptional()
   @IsBoolean()
   showCv?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showProfileSummary?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showProfessionalStatus?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showLinkedIn?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showGithub?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showYoutube?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showInstagram?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showTiktok?: boolean;
 }

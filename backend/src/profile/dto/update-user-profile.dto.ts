@@ -33,6 +33,10 @@ export class UpdateUserProfileDto {
 
   @IsOptional()
   @IsString()
+  specialization?: string;
+
+  @IsOptional()
+  @IsString()
   jobTitle?: string;
 
   @IsOptional()
@@ -42,4 +46,32 @@ export class UpdateUserProfileDto {
   @IsOptional()
   @IsDateString()
   birthDate?: string;
+
+  @IsOptional()
+  @IsString()
+  profileSummary?: string;
+
+  @IsOptional()
+  @IsString()
+  linkedInUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  githubUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  youtubeUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  instagramUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  tiktokUrl?: string;
+
+  @IsOptional()
+  @IsIn(['open_to_work', 'hired', 'not_available'])
+  professionalStatus?: 'open_to_work' | 'hired' | 'not_available';
 }
