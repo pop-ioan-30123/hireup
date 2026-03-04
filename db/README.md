@@ -25,6 +25,8 @@ Rulare în ordine:
 17. `db/migrations/017_profile_skills_and_visibility_per_entry.sql`
 18. `db/migrations/018_activities_marketplace_and_notifications.sql`
 19. `db/migrations/019_enforce_audit_coverage_all_tables.sql`
+20. `db/migrations/020_fix_audit_record_pk_resolution.sql`
+21. `db/migrations/021_reenable_user_triggers.sql`
 
 Exemplu:
 
@@ -48,6 +50,8 @@ psql "$DATABASE_URL" -f db/migrations/016_profile_education_level_and_account_cr
 psql "$DATABASE_URL" -f db/migrations/017_profile_skills_and_visibility_per_entry.sql
 psql "$DATABASE_URL" -f db/migrations/018_activities_marketplace_and_notifications.sql
 psql "$DATABASE_URL" -f db/migrations/019_enforce_audit_coverage_all_tables.sql
+psql "$DATABASE_URL" -f db/migrations/020_fix_audit_record_pk_resolution.sql
+psql "$DATABASE_URL" -f db/migrations/021_reenable_user_triggers.sql
 ```
 
 ## Ce acoperă schema
