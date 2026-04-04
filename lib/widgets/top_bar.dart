@@ -11,9 +11,12 @@ class TopBarWidget extends StatefulWidget {
   final Function(bool) onThemeChange;
   final Widget? trailingRight;
   final bool authenticatedLayout;
-  final VoidCallback? onMessagesTap;
-  final VoidCallback? onNotificationsTap;
+  final ValueChanged<Rect>? onMessagesTap;
+  final ValueChanged<Rect>? onSocialTap;
+  final ValueChanged<Rect>? onNotificationsTap;
   final void Function(String query, String scope)? onSearchAction;
+  final int messagesBadgeCount;
+  final int socialBadgeCount;
   final int notificationBadgeCount;
 
   const TopBarWidget({
@@ -25,8 +28,11 @@ class TopBarWidget extends StatefulWidget {
     this.trailingRight,
     this.authenticatedLayout = false,
     this.onMessagesTap,
+    this.onSocialTap,
     this.onNotificationsTap,
     this.onSearchAction,
+    this.messagesBadgeCount = 0,
+    this.socialBadgeCount = 0,
     this.notificationBadgeCount = 0,
   });
 
@@ -52,8 +58,11 @@ class _TopBarWidgetState extends State<TopBarWidget> {
     final trailingRight = widget.trailingRight;
     final authenticatedLayout = widget.authenticatedLayout;
     final onMessagesTap = widget.onMessagesTap;
+    final onSocialTap = widget.onSocialTap;
     final onNotificationsTap = widget.onNotificationsTap;
     final onSearchAction = widget.onSearchAction;
+    final messagesBadgeCount = widget.messagesBadgeCount;
+    final socialBadgeCount = widget.socialBadgeCount;
     final notificationBadgeCount = widget.notificationBadgeCount;
     final isMobile = Responsive.isMobile(context);
     final isTablet = Responsive.isTablet(context);
@@ -173,7 +182,15 @@ class _TopBarWidgetState extends State<TopBarWidget> {
                   icon: Icons.chat_bubble_outline_rounded,
                   onTap: onMessagesTap,
                   compact: isNarrow,
+                  badgeCount: messagesBadgeCount,
                 ),
+              _topActionButton(
+                label: lang == 'ro' ? 'Social' : 'Social',
+                icon: Icons.groups_rounded,
+                onTap: onSocialTap,
+                compact: isNarrow,
+                badgeCount: socialBadgeCount,
+              ),
               _topActionButton(
                 label: t(lang, 'notifications'),
                 icon: Icons.notifications_outlined,
@@ -516,7 +533,7 @@ class _TopBarWidgetState extends State<TopBarWidget> {
   Widget _topActionButton({
     required String label,
     required IconData icon,
-    required VoidCallback? onTap,
+    required ValueChanged<Rect>? onTap,
     bool compact = false,
     int badgeCount = 0,
   }) {
@@ -554,18 +571,30 @@ class _TopBarWidgetState extends State<TopBarWidget> {
       ],
     );
 
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: iconWidget,
-      label: compact ? const SizedBox.shrink() : Text(label),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.white,
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 10 : 12,
-          vertical: compact ? 8 : 10,
+    return Builder(
+      builder: (buttonContext) => OutlinedButton.icon(
+        onPressed: onTap == null
+            ? null
+            : () {
+                final renderObject = buttonContext.findRenderObject();
+                if (renderObject is! RenderBox) {
+                  return;
+                }
+                final topLeft = renderObject.localToGlobal(Offset.zero);
+                final rect = topLeft & renderObject.size;
+                onTap(rect);
+              },
+        icon: iconWidget,
+        label: compact ? const SizedBox.shrink() : Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 12,
+            vertical: compact ? 8 : 10,
+          ),
+          minimumSize: compact ? const Size(42, 40) : null,
         ),
-        minimumSize: compact ? const Size(42, 40) : null,
       ),
     );
   }

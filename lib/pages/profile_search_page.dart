@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 
 import '../core/texts.dart';
 import '../services/api_service.dart';
@@ -41,10 +43,16 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
   int _total = 0;
   List<Map<String, dynamic>> _items = const [];
   Map<String, dynamic>? _selfSearchItem;
+  final Map<String, Uint8List?> _avatarByUserId = <String, Uint8List?>{};
+  final Set<String> _avatarLoadingUserIds = <String>{};
+  late String _lang;
+  late bool _isDark;
 
   @override
   void initState() {
     super.initState();
+    _lang = widget.lang;
+    _isDark = widget.isDark;
     _searchCtrl = TextEditingController(text: widget.initialQuery);
     _runSearch(resetPage: true);
   }
@@ -53,6 +61,13 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileSearchPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.lang != widget.lang) _lang = widget.lang;
+    if (oldWidget.isDark != widget.isDark) _isDark = widget.isDark;
   }
 
   Future<void> _runSearch({required bool resetPage}) async {
@@ -101,6 +116,7 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
         _items = augmentedItems;
         _isLoading = false;
       });
+      unawaited(_preloadResultAvatars(token, augmentedItems));
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -110,10 +126,62 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = t(widget.lang, 'loginGenericError');
+        _error = t(_lang, 'loginGenericError');
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _preloadResultAvatars(
+    String token,
+    List<Map<String, dynamic>> items,
+  ) async {
+    final userIds = <String>{};
+    for (final item in items) {
+      final userId = item['userId']?.toString().trim() ?? '';
+      if (userId.isNotEmpty) {
+        userIds.add(userId);
+      }
+    }
+
+    for (final userId in userIds) {
+      if (_avatarByUserId.containsKey(userId) ||
+          _avatarLoadingUserIds.contains(userId)) {
+        continue;
+      }
+
+      _avatarLoadingUserIds.add(userId);
+      try {
+        final bytes = await ApiService.fetchUserAvatar(
+          accessToken: token,
+          userId: userId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _avatarByUserId[userId] = bytes;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _avatarByUserId[userId] = null;
+        });
+      } finally {
+        _avatarLoadingUserIds.remove(userId);
+      }
+    }
+  }
+
+  String _avatarInitials(Map<String, dynamic> item) {
+    final firstName = item['firstName']?.toString().trim() ?? '';
+    final lastName = item['lastName']?.toString().trim() ?? '';
+    final first = firstName.isNotEmpty ? firstName.characters.first : '';
+    final last = lastName.isNotEmpty ? lastName.characters.first : '';
+    final initials = '$first$last'.trim();
+    if (initials.isNotEmpty) return initials.toUpperCase();
+
+    final email = item['email']?.toString().trim() ?? '';
+    if (email.isNotEmpty) return email.characters.first.toUpperCase();
+    return '?';
   }
 
   Future<void> _openProfile(Map<String, dynamic> item) async {
@@ -135,8 +203,8 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => ProfilePage(
-            lang: widget.lang,
-            isDark: widget.isDark,
+            lang: _lang,
+            isDark: _isDark,
             onLangChange: widget.onLangChange,
             onThemeChange: widget.onThemeChange,
             onLogout: widget.onLogout,
@@ -247,10 +315,10 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
   Widget build(BuildContext context) {
     final maxPage = (_total / _pageSize).ceil().clamp(1, 1000000);
     final fieldOptions = <DropdownMenuItem<String>>[
-      DropdownMenuItem(value: 'all', child: Text(t(widget.lang, 'searchFilterAll'))),
-      DropdownMenuItem(value: 'name', child: Text(t(widget.lang, 'searchFilterName'))),
-      DropdownMenuItem(value: 'email', child: Text(t(widget.lang, 'searchFilterEmail'))),
-      DropdownMenuItem(value: 'jobTitle', child: Text(t(widget.lang, 'searchFilterJobTitle'))),
+      DropdownMenuItem(value: 'all', child: Text(t(_lang, 'searchFilterAll'))),
+      DropdownMenuItem(value: 'name', child: Text(t(_lang, 'searchFilterName'))),
+      DropdownMenuItem(value: 'email', child: Text(t(_lang, 'searchFilterEmail'))),
+      DropdownMenuItem(value: 'jobTitle', child: Text(t(_lang, 'searchFilterJobTitle'))),
     ];
 
     final content = _isLoading
@@ -276,7 +344,7 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
                       textInputAction: TextInputAction.search,
                       onSubmitted: (_) => _runSearch(resetPage: true),
                       decoration: InputDecoration(
-                        hintText: t(widget.lang, 'searchCandidatesJobs'),
+                        hintText: t(_lang, 'searchCandidatesJobs'),
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.search),
                       ),
@@ -288,14 +356,14 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
                           child: OutlinedButton.icon(
                             onPressed: () => Navigator.of(context).maybePop(),
                             icon: const Icon(Icons.close_rounded),
-                            label: Text(t(widget.lang, 'closeSearch')),
+                            label: Text(t(_lang, 'closeSearch')),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: FilledButton(
                             onPressed: () => _runSearch(resetPage: true),
-                            child: Text(t(widget.lang, 'searchAction')),
+                            child: Text(t(_lang, 'searchAction')),
                           ),
                         ),
                       ],
@@ -312,7 +380,7 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
                       textInputAction: TextInputAction.search,
                       onSubmitted: (_) => _runSearch(resetPage: true),
                       decoration: InputDecoration(
-                        hintText: t(widget.lang, 'searchCandidatesJobs'),
+                        hintText: t(_lang, 'searchCandidatesJobs'),
                         border: const OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.search),
                       ),
@@ -322,12 +390,12 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
                   OutlinedButton.icon(
                     onPressed: () => Navigator.of(context).maybePop(),
                     icon: const Icon(Icons.close_rounded),
-                    label: Text(t(widget.lang, 'closeSearch')),
+                            label: Text(t(_lang, 'closeSearch')),
                   ),
                   const SizedBox(width: 10),
                   FilledButton(
                     onPressed: () => _runSearch(resetPage: true),
-                    child: Text(t(widget.lang, 'searchAction')),
+                            child: Text(t(_lang, 'searchAction')),
                   ),
                 ],
               );
@@ -340,7 +408,7 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                t(widget.lang, 'searchFiltersLabel'),
+                t(_lang, 'searchFiltersLabel'),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               SizedBox(
@@ -364,7 +432,7 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
           const SizedBox(height: 14),
           Expanded(
             child: _items.isEmpty
-                ? Center(child: Text(t(widget.lang, 'searchNoResults')))
+                ? Center(child: Text(t(_lang, 'searchNoResults')))
                 : ListView.separated(
                     itemCount: _items.length,
                     separatorBuilder: (context, _) => const SizedBox(height: 10),
@@ -381,6 +449,8 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
                         item['country']?.toString() ?? '',
                       ].where((entry) => entry.trim().isNotEmpty).join(', ');
                       final years = (item['yearsExperience'] as num?)?.toInt();
+                      final userId = item['userId']?.toString() ?? '';
+                      final avatarBytes = _avatarByUserId[userId];
 
                       return InkWell(
                         borderRadius: BorderRadius.circular(12),
@@ -406,7 +476,30 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  CircleAvatar(
+                                    radius: 19,
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        .withValues(alpha: 0.14),
+                                    foregroundImage: avatarBytes != null
+                                        ? MemoryImage(avatarBytes)
+                                        : null,
+                                    child: avatarBytes == null
+                                        ? Text(
+                                            _avatarInitials(item),
+                                            style: TextStyle(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       name.isEmpty
@@ -432,7 +525,7 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
                                         ),
                                       ),
                                       child: Text(
-                                        t(widget.lang, 'searchSelfBadge'),
+                                        t(_lang, 'searchSelfBadge'),
                                         style: const TextStyle(
                                           color: Colors.green,
                                           fontWeight: FontWeight.w700,
@@ -451,7 +544,7 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
                               ],
                               if (years != null) ...[
                                 const SizedBox(height: 4),
-                                Text('${t(widget.lang, 'yearsExperience')}: $years'),
+                                Text('${t(_lang, 'yearsExperience')}: $years'),
                               ],
                             ],
                           ),
@@ -495,10 +588,16 @@ class _ProfileSearchPageState extends State<ProfileSearchPage> {
     }
 
     return AuthenticatedPageShell(
-      lang: widget.lang,
-      isDark: widget.isDark,
-      onLangChange: widget.onLangChange,
-      onThemeChange: widget.onThemeChange,
+      lang: _lang,
+      isDark: _isDark,
+      onLangChange: (lang) {
+        setState(() => _lang = lang);
+        widget.onLangChange(lang);
+      },
+      onThemeChange: (isDark) {
+        setState(() => _isDark = isDark);
+        widget.onThemeChange(isDark);
+      },
       onLogout: widget.onLogout,
       child: content,
     );

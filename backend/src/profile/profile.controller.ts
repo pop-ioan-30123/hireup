@@ -191,4 +191,21 @@ export class ProfileController {
       disposition: 'inline',
     });
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('users/:userId/avatar')
+  async getUserAvatar(
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+  ): Promise<StreamableFile> {
+    const avatar = await this.profileService.getAvatar(userId);
+    if (!avatar) {
+      throw new NotFoundException('Avatar not found');
+    }
+
+    return new StreamableFile(avatar.buffer, {
+      type: avatar.mimeType ?? 'application/octet-stream',
+      length: avatar.size,
+      disposition: 'inline',
+    });
+  }
 }

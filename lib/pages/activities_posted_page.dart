@@ -406,6 +406,9 @@ class _PostedActivitiesPageState extends State<_PostedActivitiesPage> {
 
     final updated = _ActivityItem(
       id: item.id,
+      section: item.section,
+      categoryKey: item.categoryKey,
+      subcategoryKey: item.subcategoryKey,
       title: titleController.text.trim(),
       description: descriptionController.text.trim(),
       amountRon: parsedAmount,

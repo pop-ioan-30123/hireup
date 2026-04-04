@@ -32,7 +32,7 @@ export class UploadsService {
 
     this.validateMimeAndSize(normalizedAttachment, file);
 
-    const storageRoot = path.resolve(__dirname, '../../uploads');
+    const storageRoot = path.resolve(process.cwd(), 'uploads');
     const storageDir = path.join(storageRoot, normalizedTarget, normalizedAttachment);
     await fs.mkdir(storageDir, { recursive: true });
 

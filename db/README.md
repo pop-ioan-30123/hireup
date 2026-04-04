@@ -27,6 +27,7 @@ Rulare în ordine:
 19. `db/migrations/019_enforce_audit_coverage_all_tables.sql`
 20. `db/migrations/020_fix_audit_record_pk_resolution.sql`
 21. `db/migrations/021_reenable_user_triggers.sql`
+22. `db/migrations/022_activity_service_categorization.sql`
 
 Exemplu:
 
@@ -52,6 +53,7 @@ psql "$DATABASE_URL" -f db/migrations/018_activities_marketplace_and_notificatio
 psql "$DATABASE_URL" -f db/migrations/019_enforce_audit_coverage_all_tables.sql
 psql "$DATABASE_URL" -f db/migrations/020_fix_audit_record_pk_resolution.sql
 psql "$DATABASE_URL" -f db/migrations/021_reenable_user_triggers.sql
+psql "$DATABASE_URL" -f db/migrations/022_activity_service_categorization.sql
 ```
 
 ## Ce acoperă schema

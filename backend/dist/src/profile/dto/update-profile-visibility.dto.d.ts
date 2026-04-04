@@ -1,0 +1,29 @@
+export declare class UpdateProfileVisibilityDto {
+    showGender?: boolean;
+    showBirthDate?: boolean;
+    showAccountCreatedDate?: boolean;
+    showAccountCreatedTime?: boolean;
+    showJobTitle?: boolean;
+    showPhone?: boolean;
+    showCountry?: boolean;
+    showCounty?: boolean;
+    showCity?: boolean;
+    showYearsExperience?: boolean;
+    showEducationLevel?: boolean;
+    showEducationInstitution?: boolean;
+    showSpecialization?: boolean;
+    showCompanyName?: boolean;
+    showCompanyCounty?: boolean;
+    showCompanyCity?: boolean;
+    showHrFirstName?: boolean;
+    showHrLastName?: boolean;
+    showHrEmail?: boolean;
+    showCv?: boolean;
+    showProfileSummary?: boolean;
+    showProfessionalStatus?: boolean;
+    showLinkedIn?: boolean;
+    showGithub?: boolean;
+    showYoutube?: boolean;
+    showInstagram?: boolean;
+    showTiktok?: boolean;
+}

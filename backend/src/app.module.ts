@@ -8,9 +8,11 @@ import { UploadsModule } from './uploads/uploads.module';
 import { ProfileModule } from './profile/profile.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { AuditModule } from './audit/audit.module';
+import { MessagesModule } from './messages/messages.module';
+import { SocialModule } from './social/social.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, AuthModule, UploadsModule, ProfileModule, ActivitiesModule, AuditModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, AuthModule, UploadsModule, ProfileModule, ActivitiesModule, AuditModule, MessagesModule, SocialModule],
   controllers: [HealthController],
 })
 export class AppModule implements NestModule {

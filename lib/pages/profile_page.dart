@@ -59,6 +59,17 @@ class _ProfilePageState extends State<ProfilePage> {
   final GlobalKey _skillsSectionKey = GlobalKey();
   final GlobalKey _educationSectionKey = GlobalKey();
   final GlobalKey _projectsSectionKey = GlobalKey();
+  Map<String, dynamic>? _socialSummary;
+  List<Map<String, dynamic>> _followers = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _contacts = const <Map<String, dynamic>>[];
+  bool _followersListVisible = true;
+  bool _contactsListVisible = true;
+  bool _socialSummaryLoading = false;
+  bool _socialListsLoading = false;
+  bool _socialActionBusy = false;
+  String? _authUserId;
+  final Map<String, Uint8List?> _socialAvatarByUserId = <String, Uint8List?>{};
+  final Set<String> _socialAvatarLoadingUserIds = <String>{};
 
   @override
   void initState() {
@@ -70,6 +81,7 @@ class _ProfilePageState extends State<ProfilePage> {
       profileData = widget.initialProfileData;
       avatarBytes = widget.initialAvatarBytes;
       isLoading = false;
+      unawaited(_loadAccessTokenAndSocialSummary());
       return;
     }
 
@@ -99,6 +111,10 @@ class _ProfilePageState extends State<ProfilePage> {
       currentIsDark = widget.isDark;
     }
   }
+
+  bool get _isRomanianLanguage => currentLang.toLowerCase().startsWith('ro');
+
+  String _localized(String ro, String en) => _isRomanianLanguage ? ro : en;
 
   Future<void> _loadAvatarFromCache() async {
     final encoded = await SecureStorage.read('profile_avatar_base64_cache');
@@ -158,9 +174,11 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       setState(() {
         accessToken = token;
+        _authUserId = _extractUserIdFromToken(token);
         profileData = data;
         isLoading = false;
       });
+      unawaited(_loadSocialSummary());
 
       try {
         final avatar = await ApiService.fetchAvatar(accessToken: token);
@@ -205,6 +223,301 @@ class _ProfilePageState extends State<ProfilePage> {
       context,
       rootNavigator: true,
     ).popUntil((route) => route.isFirst);
+  }
+
+  String? get _displayedUserId {
+    final user = profileData?['user'] as Map<String, dynamic>?;
+    final id = user?['id']?.toString();
+    if (id == null || id.isEmpty) return null;
+    return id;
+  }
+
+  Future<void> _loadAccessTokenAndSocialSummary() async {
+    final token = await SecureStorage.read('access_token');
+    if (!mounted) return;
+    setState(() {
+      accessToken = token;
+      _authUserId = _extractUserIdFromToken(token);
+    });
+    await _loadDisplayedUserAvatar(token);
+    await _loadSocialSummary();
+  }
+
+  Future<void> _loadDisplayedUserAvatar(String? token) async {
+    if (token == null || token.isEmpty) return;
+    final displayedUserId = _displayedUserId;
+    if (displayedUserId == null || displayedUserId.isEmpty) return;
+
+    try {
+      Uint8List? bytes;
+      if (displayedUserId == _authUserId) {
+        bytes = await ApiService.fetchAvatar(accessToken: token);
+        if (bytes != null) {
+          await SecureStorage.write(
+            'profile_avatar_base64_cache',
+            base64Encode(bytes),
+          );
+        }
+      } else {
+        bytes = await ApiService.fetchUserAvatar(
+          accessToken: token,
+          userId: displayedUserId,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        avatarBytes = bytes;
+      });
+    } catch (_) {
+      return;
+    }
+  }
+
+  String? _extractUserIdFromToken(String? token) {
+    if (token == null || token.trim().isEmpty) return null;
+
+    final parts = token.split('.');
+    if (parts.length < 2) return null;
+
+    try {
+      final normalized = base64Url.normalize(parts[1]);
+      final payloadText = utf8.decode(base64Url.decode(normalized));
+      final payload = jsonDecode(payloadText);
+      if (payload is! Map<String, dynamic>) return null;
+      final userId = payload['sub']?.toString().trim();
+      if (userId == null || userId.isEmpty) return null;
+      return userId;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _loadSocialSummary() async {
+    final token = accessToken ?? await SecureStorage.read('access_token');
+    final userId = _displayedUserId;
+    if (token == null || token.isEmpty || userId == null) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _socialSummaryLoading = true);
+    }
+
+    try {
+      final summary = await ApiService.getSocialSummary(
+        accessToken: token,
+        userId: userId,
+      );
+      if (!mounted) return;
+      setState(() {
+        accessToken = token;
+        _socialSummary = summary;
+      });
+      await _loadSocialLists(
+        token,
+        userId,
+        summary,
+        isOwnProfile: _authUserId != null && _authUserId == userId,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _socialSummary = null;
+        _followers = const <Map<String, dynamic>>[];
+        _contacts = const <Map<String, dynamic>>[];
+        _followersListVisible = true;
+        _contactsListVisible = true;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _socialSummaryLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadSocialLists(
+    String token,
+    String userId,
+    Map<String, dynamic> summary,
+    {required bool isOwnProfile}
+  ) async {
+    final shouldShowFollowers =
+        isOwnProfile || summary['showFollowerList'] != false;
+    final shouldShowContacts =
+        isOwnProfile || summary['showContactList'] != false;
+
+    if (mounted) {
+      setState(() => _socialListsLoading = true);
+    }
+
+    try {
+      Future<Map<String, dynamic>> safeListRequest(
+        bool shouldRequest,
+        Future<Map<String, dynamic>> Function() request,
+      ) async {
+        if (!shouldRequest) {
+          return const <String, dynamic>{
+            'items': <dynamic>[],
+            'isVisible': false,
+          };
+        }
+        try {
+          return await request();
+        } catch (_) {
+          return const <String, dynamic>{
+            'items': <dynamic>[],
+            'isVisible': true,
+          };
+        }
+      }
+
+      final followersResult = await safeListRequest(
+        shouldShowFollowers,
+        () => ApiService.listFollowers(accessToken: token, userId: userId),
+      );
+      final contactsResult = await safeListRequest(
+        shouldShowContacts,
+        () => ApiService.listContacts(accessToken: token, userId: userId),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _followers =
+            (followersResult['items'] as List<dynamic>? ?? const <dynamic>[])
+                .whereType<Map<String, dynamic>>()
+                .toList(growable: false);
+        _contacts =
+            (contactsResult['items'] as List<dynamic>? ?? const <dynamic>[])
+                .whereType<Map<String, dynamic>>()
+                .toList(growable: false);
+        _followersListVisible =
+            shouldShowFollowers && followersResult['isVisible'] != false;
+        _contactsListVisible =
+            shouldShowContacts && contactsResult['isVisible'] != false;
+      });
+      unawaited(_preloadSocialAvatars(token));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _followers = const <Map<String, dynamic>>[];
+        _contacts = const <Map<String, dynamic>>[];
+        _followersListVisible = true;
+        _contactsListVisible = true;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _socialListsLoading = false);
+      }
+    }
+  }
+
+  Future<void> _preloadSocialAvatars(String token) async {
+    final userIds = <String>{};
+    for (final person in _followers) {
+      final id = person['userId']?.toString().trim() ?? '';
+      if (id.isNotEmpty) userIds.add(id);
+    }
+    for (final person in _contacts) {
+      final id = person['userId']?.toString().trim() ?? '';
+      if (id.isNotEmpty) userIds.add(id);
+    }
+
+    for (final userId in userIds) {
+      if (_socialAvatarByUserId.containsKey(userId) ||
+          _socialAvatarLoadingUserIds.contains(userId)) {
+        continue;
+      }
+
+      _socialAvatarLoadingUserIds.add(userId);
+      try {
+        final bytes = await ApiService.fetchUserAvatar(
+          accessToken: token,
+          userId: userId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _socialAvatarByUserId[userId] = bytes;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _socialAvatarByUserId[userId] = null;
+        });
+      } finally {
+        _socialAvatarLoadingUserIds.remove(userId);
+      }
+    }
+  }
+
+  String _personInitials(Map<String, dynamic> person) {
+    final fullName = person['fullName']?.toString().trim() ?? '';
+    final parts = fullName
+        .split(RegExp(r'\s+'))
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+    if (parts.isNotEmpty) {
+      final first = parts.first.characters.first;
+      final last = parts.length > 1 ? parts.last.characters.first : '';
+      return '$first$last'.toUpperCase();
+    }
+
+    final email = person['email']?.toString().trim() ?? '';
+    if (email.isNotEmpty) return email.characters.first.toUpperCase();
+    return '?';
+  }
+
+  Widget _socialPersonAvatar(Map<String, dynamic> person, IconData fallbackIcon) {
+    final scheme = Theme.of(context).colorScheme;
+    final userId = person['userId']?.toString().trim() ?? '';
+    final bytes = userId.isEmpty ? null : _socialAvatarByUserId[userId];
+
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: scheme.primary.withValues(alpha: 0.16),
+      foregroundImage: bytes != null ? MemoryImage(bytes) : null,
+      child: bytes == null
+          ? Text(
+              _personInitials(person),
+              style: TextStyle(
+                color: scheme.primary,
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            )
+          : null,
+    );
+  }
+
+  Future<void> _openSocialPersonProfile(Map<String, dynamic> person) async {
+    final token = accessToken ?? await SecureStorage.read('access_token');
+    final userId = person['userId']?.toString().trim() ?? '';
+    if (token == null || token.isEmpty || userId.isEmpty) return;
+
+    try {
+      final data = await ApiService.getProfileByUserId(
+        accessToken: token,
+        userId: userId,
+      );
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ProfilePage(
+            lang: currentLang,
+            isDark: currentIsDark,
+            onLangChange: widget.onLangChange,
+            onThemeChange: widget.onThemeChange,
+            onLogout: widget.onLogout,
+            initialProfileData: data,
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   bool _isVisible(String key) {
@@ -1149,6 +1462,14 @@ class _ProfilePageState extends State<ProfilePage> {
     final professionalStatusColors = _professionalStatusColors(
       professionalStatusRaw,
     );
+    final hasSocialProfile = _displayedUserId != null;
+    final isOwnProfile =
+      !_isPreviewMode ||
+      (_authUserId != null && _displayedUserId == _authUserId);
+    final followerCount = (_socialSummary?['followerCount'] as num?)?.toInt() ?? 0;
+    final contactCount = (_socialSummary?['contactCount'] as num?)?.toInt() ?? 0;
+    final isFollowing = _socialSummary?['isFollowing'] == true;
+    final contactStatus = _socialSummary?['contactStatus']?.toString() ?? 'none';
 
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isMobileHeader = screenWidth < 720;
@@ -1332,26 +1653,153 @@ class _ProfilePageState extends State<ProfilePage> {
                               ],
                             ),
                           ],
+                          if (hasSocialProfile) ...[
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (_socialSummaryLoading || _socialListsLoading)
+                                  Chip(
+                                    avatar: const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                    label: Text(
+                                      _localized('Se încarcă conexiunile', 'Loading connections'),
+                                    ),
+                                  ),
+                                ActionChip(
+                                  onPressed: () async {
+                                    final token = accessToken ??
+                                        await SecureStorage.read('access_token');
+                                    final userId = _displayedUserId;
+                                    final summary = _socialSummary;
+                                    final isOwnProfile = _authUserId != null &&
+                                        _authUserId == userId;
+
+                                    if (token != null &&
+                                        token.isNotEmpty &&
+                                        userId != null &&
+                                        summary != null) {
+                                      await _loadSocialLists(
+                                        token,
+                                        userId,
+                                        summary,
+                                        isOwnProfile: isOwnProfile,
+                                      );
+                                    }
+
+                                    if (!mounted) return;
+                                    _showSocialPeopleDialog(
+                                      title: _localized('Urmăritori', 'Followers'),
+                                      emptyLabel: _localized(
+                                        _followersListVisible
+                                            ? 'Nu există urmăritori afișați încă.'
+                                            : 'Lista de urmăritori este privată.',
+                                        _followersListVisible
+                                            ? 'No followers to display yet.'
+                                            : 'The follower list is private.',
+                                      ),
+                                      people: _followers,
+                                      icon: Icons.groups_2_outlined,
+                                    );
+                                  },
+                                  avatar: const Icon(Icons.groups_2_outlined, size: 18),
+                                  label: Text(
+                                    '$followerCount ${_localized('Urmăritori', 'Followers')}',
+                                  ),
+                                ),
+                                ActionChip(
+                                  onPressed: () async {
+                                    final token = accessToken ??
+                                        await SecureStorage.read('access_token');
+                                    final userId = _displayedUserId;
+                                    final summary = _socialSummary;
+                                    final isOwnProfile = _authUserId != null &&
+                                        _authUserId == userId;
+
+                                    if (token != null &&
+                                        token.isNotEmpty &&
+                                        userId != null &&
+                                        summary != null) {
+                                      await _loadSocialLists(
+                                        token,
+                                        userId,
+                                        summary,
+                                        isOwnProfile: isOwnProfile,
+                                      );
+                                    }
+
+                                    if (!mounted) return;
+                                    _showSocialPeopleDialog(
+                                      title: _localized('Contacte', 'Contacts'),
+                                      emptyLabel: _localized(
+                                        _contactsListVisible
+                                            ? 'Nu există contacte afișate încă.'
+                                            : 'Lista de contacte este privată.',
+                                        _contactsListVisible
+                                            ? 'No contacts to display yet.'
+                                            : 'The contact list is private.',
+                                      ),
+                                      people: _contacts,
+                                      icon: Icons.handshake_outlined,
+                                    );
+                                  },
+                                  avatar: const Icon(Icons.contact_page_outlined, size: 18),
+                                  label: Text(
+                                    '$contactCount ${_localized('Contacte', 'Contacts')}',
+                                  ),
+                                ),
+                                if (contactStatus == 'accepted' && !isOwnProfile)
+                                  Chip(
+                                    avatar: const Icon(Icons.handshake_outlined, size: 18),
+                                    label: Text(
+                                      _localized('Sunteți contacte', 'You are contacts'),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
                     const SizedBox(width: 12),
                     SizedBox(
-                      width: isMobileHeader ? 130 : 168,
+                      width: isMobileHeader ? 148 : 184,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          FilledButton.icon(
-                            onPressed: _onMessageTap,
-                            icon: const Icon(Icons.chat_bubble_outline_rounded),
-                            label: Text(t(widget.lang, 'message')),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: hasCv ? _onDownloadCvTap : null,
-                            icon: const Icon(Icons.download_rounded),
-                            label: Text(t(widget.lang, 'downloadCvAction')),
-                          ),
+                          if (hasSocialProfile && !isOwnProfile) ...[
+                            FilledButton.icon(
+                              onPressed: _socialActionBusy ? null : _onMessageTap,
+                              icon: const Icon(Icons.chat_bubble_outline_rounded),
+                              label: Text(t(widget.lang, 'message')),
+                            ),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: _socialActionBusy
+                                  ? null
+                                  : (isFollowing ? _unfollowUser : _followUser),
+                              icon: Icon(
+                                isFollowing
+                                    ? Icons.person_remove_alt_1_rounded
+                                    : Icons.person_add_alt_1_rounded,
+                              ),
+                              label: Text(
+                                isFollowing
+                                    ? _localized('Nu mai urmări', 'Unfollow')
+                                    : _localized('Urmărește', 'Follow'),
+                              ),
+                            ),
+                          ] else ...[
+                            FilledButton.icon(
+                              onPressed: hasCv ? _onDownloadCvTap : null,
+                              icon: const Icon(Icons.download_rounded),
+                              label: Text(t(widget.lang, 'downloadCvAction')),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1564,6 +2012,94 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showSocialPeopleDialog({
+    required String title,
+    required String emptyLabel,
+    required List<Map<String, dynamic>> people,
+    required IconData icon,
+  }) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final scheme = Theme.of(dialogContext).colorScheme;
+
+        return AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            width: 460,
+            child: people.isEmpty
+                ? Text(
+                    emptyLabel,
+                    style: TextStyle(color: Theme.of(dialogContext).hintColor),
+                  )
+                : ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: people.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final person = people[index];
+                      final userId = person['userId']?.toString().trim() ?? '';
+                      return Container(
+                        padding: EdgeInsets.zero,
+                        decoration: BoxDecoration(
+                          color: scheme.surfaceContainerHighest.withValues(alpha: 0.36),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: userId.isEmpty
+                              ? null
+                              : () async {
+                                  Navigator.of(dialogContext).pop();
+                                  await _openSocialPersonProfile(person);
+                                },
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Row(
+                              children: [
+                                _socialPersonAvatar(person, icon),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        person['fullName']?.toString() ?? '-',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                      Text(
+                                        person['email']?.toString() ?? '',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Theme.of(dialogContext).hintColor,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(_localized('Închide', 'Close')),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -2457,9 +2993,104 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _onMessageTap() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(t(widget.lang, 'comingSoon'))));
+    unawaited(_startDirectConversation());
+  }
+
+  Future<void> _runSocialAction(
+    Future<void> Function(String token, String userId) action,
+  ) async {
+    final token = accessToken ?? await SecureStorage.read('access_token');
+    final authUserId = _authUserId ?? _extractUserIdFromToken(token);
+    final userId = _displayedUserId;
+    if (token == null || token.isEmpty || userId == null || _socialActionBusy) {
+      return;
+    }
+
+    if (authUserId != null && authUserId == userId) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isRomanianLanguage
+                ? 'Nu poți folosi Follow pe propriul profil.'
+                : 'You cannot follow your own profile.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _socialActionBusy = true);
+    try {
+      await action(token, userId);
+      await _loadSocialSummary();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _socialActionBusy = false);
+      }
+    }
+  }
+
+  Future<void> _followUser() async {
+    await _runSocialAction((token, userId) async {
+      await ApiService.followUser(accessToken: token, userId: userId);
+    });
+  }
+
+  Future<void> _unfollowUser() async {
+    await _runSocialAction((token, userId) async {
+      await ApiService.unfollowUser(accessToken: token, userId: userId);
+    });
+  }
+
+  Future<void> _startDirectConversation() async {
+    final token = accessToken ?? await SecureStorage.read('access_token');
+    final authUserId = _authUserId ?? _extractUserIdFromToken(token);
+    final userId = _displayedUserId;
+    if (token == null || token.isEmpty || userId == null) return;
+
+    if (authUserId != null && authUserId == userId) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isRomanianLanguage
+                ? 'Nu poți trimite mesaje către propriul profil.'
+                : 'You cannot message your own profile.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final response = await ApiService.createDirectMessageConversation(
+        accessToken: token,
+        otherUserId: userId,
+      );
+      final conversationId = response['id']?.toString() ?? '';
+      if (!mounted || conversationId.isEmpty) return;
+      AuthenticatedPageShell.requestOpenConversation(conversationId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isRomanianLanguage
+                ? 'Conversația a fost deschisă.'
+                : 'Conversation opened.',
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   void _onDownloadCvTap() {

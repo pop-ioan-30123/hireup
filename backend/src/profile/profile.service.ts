@@ -2090,7 +2090,7 @@ export class ProfileService {
       }
 
       const avatar = avatarRes.rows[0];
-      const storageRoot = path.resolve(__dirname, '../../uploads');
+      const storageRoot = path.resolve(process.cwd(), 'uploads');
       const storagePath = path.join(storageRoot, avatar.storage_key);
 
       try {

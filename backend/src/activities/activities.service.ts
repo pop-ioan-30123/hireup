@@ -35,6 +35,9 @@ type ActivityRow = {
   country: string;
   county: string;
   city: string;
+  section: string;
+  category_key: string;
+  subcategory_key: string | null;
   duration_hours: number;
   start_at: string;
   is_recurring: boolean;
@@ -52,6 +55,19 @@ type ActivityRow = {
 @Injectable()
 export class ActivitiesService {
   constructor(private readonly db: DatabaseService) {}
+
+  private isMissingRelationError(error: unknown, relationName: string): boolean {
+    if (!error || typeof error != 'object') return false;
+
+    const code = (error as { code?: unknown }).code;
+    const message = (error as { message?: unknown }).message;
+
+    return (
+      code === '42P01' &&
+      typeof message === 'string' &&
+      message.toLowerCase().includes(relationName.toLowerCase())
+    );
+  }
 
   private normalizeText(value?: string): string {
     return value?.trim() ?? '';
@@ -112,6 +128,9 @@ export class ActivitiesService {
   }
 
   private validatePayload(payload: {
+    section?: string;
+    categoryKey?: string;
+    subcategoryKey?: string;
     title?: string;
     description?: string;
     amountRon?: number;
@@ -125,6 +144,9 @@ export class ActivitiesService {
     recurrenceDays?: number[];
     mealIncluded?: boolean;
   }): {
+    section: 'services';
+    categoryKey: string;
+    subcategoryKey: string | null;
     title: string;
     description: string;
     amountRon: number;
@@ -138,6 +160,19 @@ export class ActivitiesService {
     recurrenceDays: number[];
     mealIncluded: boolean;
   } {
+    const section = this.normalizeText(payload.section || 'services');
+    if (section !== 'services') {
+      throw new BadRequestException('Invalid section');
+    }
+
+    const categoryKey = this.normalizeText(payload.categoryKey);
+    if (!categoryKey) {
+      throw new BadRequestException('Missing categoryKey');
+    }
+
+    const subcategoryRaw = this.normalizeText(payload.subcategoryKey);
+    const subcategoryKey = subcategoryRaw.length > 0 ? subcategoryRaw : null;
+
     const title = this.normalizeText(payload.title);
     const description = this.normalizeText(payload.description);
     const country = this.normalizeText(payload.country);
@@ -179,6 +214,9 @@ export class ActivitiesService {
     const mealIncluded = Boolean(payload.mealIncluded) && durationHours > 4;
 
     return {
+      section: 'services',
+      categoryKey,
+      subcategoryKey,
       title,
       description,
       amountRon,
@@ -233,35 +271,41 @@ export class ActivitiesService {
       const mm = start.getUTCMinutes().toString().padStart(2, '0');
       const description = `Activity "${row.title}" has no provider and will close in up to 6 hours (start: ${start.toISOString().slice(0, 10)} ${hh}:${mm} UTC).`;
 
-      await client.query(
-        `
-        INSERT INTO activity_notification (
-          user_id,
-          activity_id,
-          title,
-          description,
-          category,
-          notification_type,
-          icon_key,
-          sent_date,
-          sent_time,
-          sent_at
-        )
-        VALUES (
-          $1, $2,
-          'Activity closing soon',
-          $3,
-          'activity',
-          'closing_soon_6h',
-          'warning',
-          CURRENT_DATE,
-          CURRENT_TIME,
-          NOW()
-        )
-        ON CONFLICT DO NOTHING
-        `,
-        [row.owner_user_id, row.id, description],
-      );
+      try {
+        await client.query(
+          `
+          INSERT INTO activity_notification (
+            user_id,
+            activity_id,
+            title,
+            description,
+            category,
+            notification_type,
+            icon_key,
+            sent_date,
+            sent_time,
+            sent_at
+          )
+          VALUES (
+            $1, $2,
+            'Activity closing soon',
+            $3,
+            'activity',
+            'closing_soon_6h',
+            'warning',
+            CURRENT_DATE,
+            CURRENT_TIME,
+            NOW()
+          )
+          ON CONFLICT DO NOTHING
+          `,
+          [row.owner_user_id, row.id, description],
+        );
+      } catch (error) {
+        if (!this.isMissingRelationError(error, 'activity_notification')) {
+          throw error;
+        }
+      }
 
       await client.query(
         `
@@ -311,6 +355,9 @@ export class ActivitiesService {
       country: row.country,
       county: row.county,
       city: row.city,
+      section: row.section,
+      categoryKey: row.category_key,
+      subcategoryKey: row.subcategory_key,
       startAt: row.start_at,
       dueAt: row.start_at,
       isRecurring: row.is_recurring,
@@ -372,6 +419,9 @@ export class ActivitiesService {
       a.country,
       a.county,
       a.city,
+      a.section,
+      a.category_key,
+      a.subcategory_key,
       a.duration_hours,
       a.start_at,
       a.is_recurring,
@@ -413,6 +463,21 @@ export class ActivitiesService {
       }
       if (query.filter === 'oneTime') {
         filters.push('a.is_recurring = FALSE');
+      }
+      if (this.normalizeText(query.section || 'services') === 'services') {
+        filters.push(`a.section = 'services'`);
+      }
+      if (this.normalizeText(query.county)) {
+        params.push(this.normalizeText(query.county));
+        filters.push(`LOWER(a.county) = LOWER($${params.length})`);
+      }
+      if (this.normalizeText(query.city)) {
+        params.push(this.normalizeText(query.city));
+        filters.push(`LOWER(a.city) = LOWER($${params.length})`);
+      }
+      if (this.normalizeText(query.categoryKey)) {
+        params.push(this.normalizeText(query.categoryKey));
+        filters.push(`a.category_key = $${params.length}`);
       }
 
       const sql = `
@@ -474,52 +539,94 @@ export class ActivitiesService {
       });
       await this.processAutoCloseRules(client);
 
-      const res = await client.query<{
-        id: string;
-        title: string;
-        description: string;
-        category: string;
-        notification_type: string;
-        icon_key: string;
-        sent_date: string;
-        sent_time: string;
-        sent_at: string;
-        activity_id: string | null;
-      }>(
-        `
-        SELECT
-          id,
-          title,
-          description,
-          category,
-          notification_type,
-          icon_key,
-          sent_date,
-          sent_time,
-          sent_at,
-          activity_id
-        FROM activity_notification
-        WHERE user_id = $1
-        ORDER BY sent_at DESC
-        LIMIT 100
-        `,
-        [userId],
-      );
+      try {
+        const res = await client.query<{
+          id: string;
+          title: string;
+          description: string;
+          category: string;
+          notification_type: string;
+          icon_key: string;
+          sent_date: string;
+          sent_time: string;
+          sent_at: string;
+          is_read: boolean;
+          read_at: string | null;
+          activity_id: string | null;
+        }>(
+          `
+          SELECT
+            id,
+            title,
+            description,
+            category,
+            notification_type,
+            icon_key,
+            sent_date,
+            sent_time,
+            sent_at,
+            is_read,
+            read_at,
+            activity_id
+          FROM activity_notification
+          WHERE user_id = $1
+          ORDER BY sent_at DESC
+          LIMIT 100
+          `,
+          [userId],
+        );
 
-      return {
-        items: res.rows.map((row) => ({
-          id: row.id,
-          title: row.title,
-          description: row.description,
-          category: row.category,
-          type: row.notification_type,
-          iconKey: row.icon_key,
-          sentDate: row.sent_date,
-          sentTime: row.sent_time,
-          sentAt: row.sent_at,
-          activityId: row.activity_id,
-        })),
-      };
+        return {
+          items: res.rows.map((row) => ({
+            id: row.id,
+            title: row.title,
+            description: row.description,
+            category: row.category,
+            type: row.notification_type,
+            iconKey: row.icon_key,
+            sentDate: row.sent_date,
+            sentTime: row.sent_time,
+            sentAt: row.sent_at,
+            isRead: row.is_read,
+            readAt: row.read_at,
+            activityId: row.activity_id,
+          })),
+        };
+      } catch (error) {
+        if (this.isMissingRelationError(error, 'activity_notification')) {
+          return { items: [] };
+        }
+        throw error;
+      }
+    });
+  }
+
+  async markNotificationsRead(userId: string, auditContext?: AuditSqlContext) {
+    return this.db.withTransaction(async (client) => {
+      await applyAuditSqlContext(client, {
+        currentUserId: userId,
+        ...auditContext,
+      });
+
+      try {
+        await client.query(
+          `
+          UPDATE activity_notification
+          SET is_read = TRUE,
+              read_at = COALESCE(read_at, NOW())
+          WHERE user_id = $1
+            AND is_read = FALSE
+          `,
+          [userId],
+        );
+      } catch (error) {
+        if (this.isMissingRelationError(error, 'activity_notification')) {
+          return { ok: true };
+        }
+        throw error;
+      }
+
+      return { ok: true };
     });
   }
 
@@ -541,6 +648,9 @@ export class ActivitiesService {
         `
         INSERT INTO activity (
           owner_user_id,
+          section,
+          category_key,
+          subcategory_key,
           title,
           description,
           amount_ron,
@@ -557,12 +667,15 @@ export class ActivitiesService {
           status
         )
         VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::smallint[],$13,$14,'open'
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::smallint[],$15,$16,'open'
         )
         RETURNING id
         `,
         [
           userId,
+          parsed.section,
+          parsed.categoryKey,
+          parsed.subcategoryKey,
           parsed.title,
           parsed.description,
           parsed.amountRon,
@@ -648,6 +761,11 @@ export class ActivitiesService {
       const current = snapshot.item as Record<string, unknown>;
 
       const validated = this.validatePayload({
+        section: (payload.section ?? current['section']) as string,
+        categoryKey: (payload.categoryKey ?? current['categoryKey']) as string,
+        subcategoryKey: (payload.subcategoryKey ?? current['subcategoryKey']) as
+          | string
+          | undefined,
         title: (payload.title ?? current['title']) as string,
         description: (payload.description ?? current['description']) as string,
         amountRon: Number(payload.amountRon ?? current['amountRon']),
@@ -673,36 +791,39 @@ export class ActivitiesService {
         `
         UPDATE activity
         SET
-          title = $2,
-          description = $3,
-          amount_ron = $4,
-          country = $5,
-          county = $6,
-          city = $7,
-          duration_hours = $8,
-          start_at = $9,
-          is_recurring = $10,
-          recurrence_pattern = $11,
-          recurrence_days = $12::smallint[],
-          recurrence_label = $13,
-          meal_included = $14,
+          section = $2,
+          category_key = $3,
+          subcategory_key = $4,
+          title = $5,
+          description = $6,
+          amount_ron = $7,
+          country = $8,
+          county = $9,
+          city = $10,
+          duration_hours = $11,
+          start_at = $12,
+          is_recurring = $13,
+          recurrence_pattern = $14,
+          recurrence_days = $15::smallint[],
+          recurrence_label = $16,
+          meal_included = $17,
           status = CASE
-            WHEN status = 'closed' AND close_reason = 'no_provider_by_deadline' AND $9::timestamptz > NOW()
+            WHEN status = 'closed' AND close_reason = 'no_provider_by_deadline' AND $12::timestamptz > NOW()
               THEN 'open'
             ELSE status
           END,
           close_reason = CASE
-            WHEN status = 'closed' AND close_reason = 'no_provider_by_deadline' AND $9::timestamptz > NOW()
+            WHEN status = 'closed' AND close_reason = 'no_provider_by_deadline' AND $12::timestamptz > NOW()
               THEN NULL
             ELSE close_reason
           END,
           closed_at = CASE
-            WHEN status = 'closed' AND close_reason = 'no_provider_by_deadline' AND $9::timestamptz > NOW()
+            WHEN status = 'closed' AND close_reason = 'no_provider_by_deadline' AND $12::timestamptz > NOW()
               THEN NULL
             ELSE closed_at
           END,
           warning_sent_at = CASE
-            WHEN $9::timestamptz > NOW() + INTERVAL '6 hours'
+            WHEN $12::timestamptz > NOW() + INTERVAL '6 hours'
               THEN NULL
             ELSE warning_sent_at
           END
@@ -710,6 +831,9 @@ export class ActivitiesService {
         `,
         [
           activityId,
+          validated.section,
+          validated.categoryKey,
+          validated.subcategoryKey,
           validated.title,
           validated.description,
           validated.amountRon,

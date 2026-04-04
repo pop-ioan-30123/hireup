@@ -25,6 +25,7 @@ enum SettingsTab {
   twoFactor,
   changePassword,
   editProfile,
+  privacy,
   themePreference,
   deleteAccount,
 }
@@ -263,6 +264,11 @@ class _SettingsPageState extends State<SettingsPage> {
   bool isTwoFactorBusy = false;
   bool isEmailVerificationBusy = false;
   bool isDefaultThemeDark = false;
+  bool isPrivacyLoading = false;
+  bool isPrivacySaving = false;
+  String messagesPrivacy = 'everyone';
+  bool showFollowerList = true;
+  bool showContactList = true;
   String? twoFactorQrDataUrl;
   String? twoFactorManualEntryKey;
   List<String> generatedBackupCodes = const [];
@@ -336,25 +342,25 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   List<String> get _educationLevels => [
-    t(widget.lang, 'educationHighSchool'),
-    t(widget.lang, 'educationPostSecondary'),
-    t(widget.lang, 'educationBachelor'),
-    t(widget.lang, 'educationMaster'),
-    t(widget.lang, 'educationDoctorate'),
+    t(currentLang, 'educationHighSchool'),
+    t(currentLang, 'educationPostSecondary'),
+    t(currentLang, 'educationBachelor'),
+    t(currentLang, 'educationMaster'),
+    t(currentLang, 'educationDoctorate'),
   ];
 
   List<DropdownMenuEntry<String>> get _professionalStatusEntries => [
     DropdownMenuEntry(
       value: 'open_to_work',
-      label: t(widget.lang, 'professionalStatusOpenToWork'),
+      label: t(currentLang, 'professionalStatusOpenToWork'),
     ),
     DropdownMenuEntry(
       value: 'hired',
-      label: t(widget.lang, 'professionalStatusHired'),
+      label: t(currentLang, 'professionalStatusHired'),
     ),
     DropdownMenuEntry(
       value: 'not_available',
-      label: t(widget.lang, 'professionalStatusNotAvailable'),
+      label: t(currentLang, 'professionalStatusNotAvailable'),
     ),
   ];
 
@@ -500,6 +506,8 @@ class _SettingsPageState extends State<SettingsPage> {
         _captureEditProfileBaseline();
       });
 
+      await _loadPrivacySettings(token);
+
       if ((data['user'] as Map<String, dynamic>?)?['twoFactorPending'] ==
           true) {
         await _cancelTwoFactorSetup(silent: true);
@@ -526,7 +534,7 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        errorMessage = t(widget.lang, 'loginGenericError');
+        errorMessage = t(currentLang, 'loginGenericError');
         isLoading = false;
       });
     }
@@ -555,6 +563,176 @@ class _SettingsPageState extends State<SettingsPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(t(currentLang, 'defaultThemeSaved'))),
+    );
+  }
+
+  Future<void> _loadPrivacySettings(String token) async {
+    if (mounted) {
+      setState(() => isPrivacyLoading = true);
+    }
+
+    try {
+      final data = await ApiService.getPrivacySettings(accessToken: token);
+      if (!mounted) return;
+      setState(() {
+        messagesPrivacy = data['messagesPrivacy']?.toString() ?? 'everyone';
+        showFollowerList = data['showFollowerList'] != false;
+        showContactList = data['showContactList'] != false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        messagesPrivacy = 'everyone';
+        showFollowerList = true;
+        showContactList = true;
+      });
+    } finally {
+      if (mounted) {
+        setState(() => isPrivacyLoading = false);
+      }
+    }
+  }
+
+  Future<void> _savePrivacySettings() async {
+    final token = accessToken;
+    if (token == null || token.isEmpty || isPrivacySaving) return;
+
+    setState(() => isPrivacySaving = true);
+    try {
+      final data = await ApiService.updatePrivacySettings(
+        accessToken: token,
+        messagesPrivacy: messagesPrivacy,
+        showFollowerList: showFollowerList,
+        showContactList: showContactList,
+      );
+      if (!mounted) return;
+      setState(() {
+        messagesPrivacy = data['messagesPrivacy']?.toString() ?? messagesPrivacy;
+        showFollowerList = data['showFollowerList'] != false;
+        showContactList = data['showContactList'] != false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(t(currentLang, 'settingsPrivacySaved')),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isPrivacySaving = false);
+      }
+    }
+  }
+
+  String _privacyLabel(String value) {
+    switch (value) {
+      case 'contacts':
+        return t(currentLang, 'settingsPrivacyContacts');
+      case 'contacts_and_followers':
+        return t(currentLang, 'settingsPrivacyContactsAndFollowers');
+      case 'everyone':
+      default:
+        return t(currentLang, 'settingsPrivacyEveryone');
+    }
+  }
+
+  List<Widget> _buildPrivacyPanelFields() {
+    if (isPrivacyLoading) {
+      return const <Widget>[
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ];
+    }
+
+    return <Widget>[
+      DropdownButtonFormField<String>(
+        initialValue: messagesPrivacy,
+        decoration: InputDecoration(
+          labelText: t(currentLang, 'settingsPrivacyWhoCanMessage'),
+        ),
+        items: [
+          DropdownMenuItem(
+            value: 'everyone',
+            child: Text(t(currentLang, 'settingsPrivacyEveryone')),
+          ),
+          DropdownMenuItem(
+            value: 'contacts',
+            child: Text(t(currentLang, 'settingsPrivacyContacts')),
+          ),
+          DropdownMenuItem(
+            value: 'contacts_and_followers',
+            child: Text(t(currentLang, 'settingsPrivacyContactsAndFollowers')),
+          ),
+        ],
+        selectedItemBuilder: (context) {
+          return ['everyone', 'contacts', 'contacts_and_followers']
+              .map((value) => Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(_privacyLabel(value)),
+                  ))
+              .toList(growable: false);
+        },
+        onChanged: (value) {
+          if (value == null) return;
+          setState(() => messagesPrivacy = value);
+        },
+      ),
+      const SizedBox(height: 18),
+      SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        value: showFollowerList,
+        onChanged: (value) => setState(() => showFollowerList = value),
+        title: Text(t(currentLang, 'settingsPrivacyShowFollowerListTitle')),
+        subtitle: Text(
+          t(currentLang, 'settingsPrivacyShowFollowerListDescription'),
+        ),
+      ),
+      SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        value: showContactList,
+        onChanged: (value) => setState(() => showContactList = value),
+        title: Text(t(currentLang, 'settingsPrivacyShowContactListTitle')),
+        subtitle: Text(t(currentLang, 'settingsPrivacyShowContactListDescription')),
+      ),
+      const SizedBox(height: 16),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: FilledButton.icon(
+          onPressed: isPrivacySaving ? null : _savePrivacySettings,
+          icon: isPrivacySaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.lock_rounded),
+          label: Text(t(currentLang, 'save')),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildPrivacyPanel() {
+    return _sectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            t(currentLang, 'settingsPrivacyTitle'),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Text(t(currentLang, 'settingsPrivacyDescription')),
+          const SizedBox(height: 20),
+          ..._buildPrivacyPanelFields(),
+        ],
+      ),
     );
   }
 
@@ -643,27 +821,27 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   bool _isHighSchoolEducationLevel(String? level) {
-    return level == t(widget.lang, 'educationHighSchool');
+    return level == t(currentLang, 'educationHighSchool');
   }
 
   bool _isUniversityEducationLevel(String? level) {
     if (level == null) return false;
-    return level == t(widget.lang, 'educationBachelor') ||
-        level == t(widget.lang, 'educationMaster') ||
-        level == t(widget.lang, 'educationDoctorate');
+    return level == t(currentLang, 'educationBachelor') ||
+        level == t(currentLang, 'educationMaster') ||
+        level == t(currentLang, 'educationDoctorate');
   }
 
   String _educationInstitutionLabelForLevel(String? level) {
     if (_isHighSchoolEducationLevel(level)) {
-      return t(widget.lang, 'educationHighSchoolCompleted');
+      return t(currentLang, 'educationHighSchoolCompleted');
     }
-    if (level == t(widget.lang, 'educationPostSecondary')) {
-      return t(widget.lang, 'educationPostSecondaryLabel');
+    if (level == t(currentLang, 'educationPostSecondary')) {
+      return t(currentLang, 'educationPostSecondaryLabel');
     }
     if (_isUniversityEducationLevel(level)) {
-      return t(widget.lang, 'educationUniversityLabel');
+      return t(currentLang, 'educationUniversityLabel');
     }
-    return t(widget.lang, 'lastEducationInstitution');
+    return t(currentLang, 'lastEducationInstitution');
   }
 
   Future<void> _pickAccountBirthDate() async {
@@ -735,7 +913,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return List<int>.generate(81, (index) => currentYear - index);
   }
 
-  String _monthName(int month) => t(widget.lang, 'monthName${month.toString().padLeft(2, '0')}');
+  String _monthName(int month) => t(currentLang, 'monthName${month.toString().padLeft(2, '0')}');
 
   String _monthOptionLabel(int month) {
     final number = month.toString().padLeft(2, '0');
@@ -808,7 +986,7 @@ class _SettingsPageState extends State<SettingsPage> {
       }
       final score = (entry['score'] as num?)?.toDouble() ?? 0;
       if (score < 1 || score > 10) {
-        return t(widget.lang, 'completeAllFields');
+        return t(currentLang, 'completeAllFields');
       }
     }
     return null;
@@ -911,7 +1089,7 @@ class _SettingsPageState extends State<SettingsPage> {
         continue;
       }
       if (title.isEmpty) {
-        return t(widget.lang, 'completeAllFields');
+        return t(currentLang, 'completeAllFields');
       }
 
       final startMonth = (entry['startMonth'] as num?)?.toInt();
@@ -921,7 +1099,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final endYear = (entry['endYear'] as num?)?.toInt();
 
       if (startMonth == null || startYear == null) {
-        return t(widget.lang, 'completeAllFields');
+        return t(currentLang, 'completeAllFields');
       }
 
       if (!isCurrent && _isEndDateBeforeStart(
@@ -930,7 +1108,7 @@ class _SettingsPageState extends State<SettingsPage> {
         endMonth: endMonth,
         endYear: endYear,
       )) {
-        return t(widget.lang, 'invalidEndDate');
+        return t(currentLang, 'invalidEndDate');
       }
     }
     return null;
@@ -1056,12 +1234,12 @@ class _SettingsPageState extends State<SettingsPage> {
       }
 
       if (company.isEmpty || role.isEmpty) {
-        return t(widget.lang, 'completeAllFields');
+        return t(currentLang, 'completeAllFields');
       }
 
       final isCurrent = entry['isCurrent'] == true;
       if (!isCurrent && (entry['endMonth'] == null || entry['endYear'] == null)) {
-        return t(widget.lang, 'completeAllFields');
+        return t(currentLang, 'completeAllFields');
       }
       if (!isCurrent &&
           _isEndDateBeforeStart(
@@ -1070,7 +1248,7 @@ class _SettingsPageState extends State<SettingsPage> {
             endMonth: (entry['endMonth'] as num?)?.toInt(),
             endYear: (entry['endYear'] as num?)?.toInt(),
           )) {
-        return t(widget.lang, 'invalidEndDate');
+        return t(currentLang, 'invalidEndDate');
       }
     }
 
@@ -1090,12 +1268,12 @@ class _SettingsPageState extends State<SettingsPage> {
       }
 
       if (educationLevel.isEmpty || university.isEmpty) {
-        return t(widget.lang, 'completeAllFields');
+        return t(currentLang, 'completeAllFields');
       }
 
       final isCurrent = entry['isCurrent'] == true;
       if (!isCurrent && (entry['endMonth'] == null || entry['endYear'] == null)) {
-        return t(widget.lang, 'completeAllFields');
+        return t(currentLang, 'completeAllFields');
       }
       if (!isCurrent &&
           _isEndDateBeforeStart(
@@ -1104,7 +1282,7 @@ class _SettingsPageState extends State<SettingsPage> {
             endMonth: (entry['endMonth'] as num?)?.toInt(),
             endYear: (entry['endYear'] as num?)?.toInt(),
           )) {
-        return t(widget.lang, 'invalidEndDate');
+        return t(currentLang, 'invalidEndDate');
       }
     }
 
@@ -1488,7 +1666,7 @@ class _SettingsPageState extends State<SettingsPage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t(widget.lang, 'saveChanges'))),
+        SnackBar(content: Text(t(currentLang, 'saveChanges'))),
       );
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -1629,17 +1807,22 @@ class _SettingsPageState extends State<SettingsPage> {
       return [
         (
           id: 'account',
-          label: t(widget.lang, 'accountDetails'),
+          label: t(currentLang, 'accountDetails'),
           icon: Icons.badge_outlined,
         ),
         (
+          id: 'privacy',
+          label: t(currentLang, 'settingsPrivacyTitle'),
+          icon: Icons.lock_person_rounded,
+        ),
+        (
           id: 'company',
-          label: t(widget.lang, 'companyDetails'),
+          label: t(currentLang, 'companyDetails'),
           icon: Icons.apartment_rounded,
         ),
         (
           id: 'hr',
-          label: t(widget.lang, 'hrDetails'),
+          label: t(currentLang, 'hrDetails'),
           icon: Icons.groups_2_outlined,
         ),
       ];
@@ -1648,62 +1831,67 @@ class _SettingsPageState extends State<SettingsPage> {
     return [
       (
         id: 'account',
-        label: t(widget.lang, 'accountDetails'),
+        label: t(currentLang, 'accountDetails'),
         icon: Icons.badge_outlined,
       ),
       (
         id: 'location',
-        label: t(widget.lang, 'locationDetails'),
+        label: t(currentLang, 'locationDetails'),
         icon: Icons.location_on_outlined,
       ),
       (
         id: 'profile',
-        label: t(widget.lang, 'profileDetails'),
+        label: t(currentLang, 'profileDetails'),
         icon: Icons.person_outline_rounded,
       ),
       (
+        id: 'privacy',
+        label: t(currentLang, 'settingsPrivacyTitle'),
+        icon: Icons.lock_person_rounded,
+      ),
+      (
         id: 'experience',
-        label: t(widget.lang, 'experienceSection'),
+        label: t(currentLang, 'experienceSection'),
         icon: Icons.work_outline_rounded,
       ),
       (
         id: 'skills',
-        label: t(widget.lang, 'skillsSection'),
+        label: t(currentLang, 'skillsSection'),
         icon: Icons.psychology_alt_outlined,
       ),
       (
         id: 'skills_languages',
-        label: t(widget.lang, 'skillsLanguages'),
+        label: t(currentLang, 'skillsLanguages'),
         icon: Icons.language_rounded,
       ),
       (
         id: 'skills_soft',
-        label: t(widget.lang, 'skillsSoft'),
+        label: t(currentLang, 'skillsSoft'),
         icon: Icons.self_improvement_rounded,
       ),
       (
         id: 'skills_hard',
-        label: t(widget.lang, 'skillsHard'),
+        label: t(currentLang, 'skillsHard'),
         icon: Icons.memory_rounded,
       ),
       (
         id: 'education',
-        label: t(widget.lang, 'educationSection'),
+        label: t(currentLang, 'educationSection'),
         icon: Icons.school_outlined,
       ),
       (
         id: 'projects',
-        label: t(widget.lang, 'projectsSection'),
+        label: t(currentLang, 'projectsSection'),
         icon: Icons.developer_board_outlined,
       ),
       (
         id: 'social',
-        label: t(widget.lang, 'socialLinks'),
+        label: t(currentLang, 'socialLinks'),
         icon: Icons.share_outlined,
       ),
       (
         id: 'attachments',
-        label: t(widget.lang, 'attachments'),
+        label: t(currentLang, 'attachments'),
         icon: Icons.attach_file_rounded,
       ),
     ];
@@ -2047,7 +2235,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(t(widget.lang, 'saveChanges'))));
+    ).showSnackBar(SnackBar(content: Text(t(currentLang, 'saveChanges'))));
   }
 
   @override
@@ -2087,6 +2275,8 @@ class _SettingsPageState extends State<SettingsPage> {
         return _buildChangePasswordPanel();
       case SettingsTab.editProfile:
         return _buildEditProfilePanel();
+      case SettingsTab.privacy:
+        return _buildPrivacyPanel();
       case SettingsTab.themePreference:
         return _buildThemePreferencePanel();
       case SettingsTab.deleteAccount:

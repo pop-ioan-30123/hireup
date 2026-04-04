@@ -14,6 +14,18 @@ import {
 
 export class UpdateActivityDto {
 	@IsOptional()
+	@IsIn(['services'])
+	section?: 'services';
+
+	@IsOptional()
+	@IsString()
+	categoryKey?: string;
+
+	@IsOptional()
+	@IsString()
+	subcategoryKey?: string;
+
+	@IsOptional()
 	@IsString()
 	title?: string;
 

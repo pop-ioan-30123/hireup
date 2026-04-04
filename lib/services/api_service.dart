@@ -377,6 +377,28 @@ class ApiService {
     return _get('/profile/users/$userId', accessToken);
   }
 
+  static Future<Uint8List?> fetchUserAvatar({
+    required String accessToken,
+    required String userId,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$_baseUrl/profile/users/$userId/avatar'),
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+
+    if (response.statusCode == 404) {
+      return null;
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response.bodyBytes;
+    }
+
+    final body = response.body.trim();
+    final map = body.isEmpty ? <String, dynamic>{} : _decodeJsonMap(body);
+    throw _toApiException(response.statusCode, map);
+  }
+
   static Future<Map<String, dynamic>> createActivityPost({
     required String accessToken,
     String? content,
@@ -427,10 +449,35 @@ class ApiService {
     required String accessToken,
     String filter = 'all',
     String sort = 'postedDesc',
+    String section = 'services',
+    String? county,
+    String? city,
+    String? categoryKey,
   }) async {
+    final query = <String, String>{
+      'filter': filter,
+      'sort': sort,
+      'section': section,
+    };
+
+    final normalizedCounty = county?.trim();
+    if (normalizedCounty != null && normalizedCounty.isNotEmpty) {
+      query['county'] = normalizedCounty;
+    }
+
+    final normalizedCity = city?.trim();
+    if (normalizedCity != null && normalizedCity.isNotEmpty) {
+      query['city'] = normalizedCity;
+    }
+
+    final normalizedCategory = categoryKey?.trim();
+    if (normalizedCategory != null && normalizedCategory.isNotEmpty) {
+      query['categoryKey'] = normalizedCategory;
+    }
+
     final uri = Uri.parse(
       '$_baseUrl/activities',
-    ).replace(queryParameters: {'filter': filter, 'sort': sort});
+    ).replace(queryParameters: query);
 
     final response = await http.get(
       uri,
@@ -460,6 +507,274 @@ class ApiService {
     required String accessToken,
   }) async {
     return _get('/activities/notifications', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> markAllActivityNotificationsRead({
+    required String accessToken,
+  }) async {
+    return _postWithAuth(
+      '/activities/notifications/read',
+      accessToken,
+      const <String, dynamic>{},
+    );
+  }
+
+  static Future<Map<String, dynamic>> listMessageConversations({
+    required String accessToken,
+  }) async {
+    return _get('/messages/conversations', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> createDirectMessageConversation({
+    required String accessToken,
+    required String otherUserId,
+  }) async {
+    return _postWithAuth('/messages/conversations/dm', accessToken, {
+      'otherUserId': otherUserId,
+    });
+  }
+
+  static Future<Map<String, dynamic>> createGroupMessageConversation({
+    required String accessToken,
+    required String title,
+    List<String>? memberIds,
+  }) async {
+    return _postWithAuth('/messages/conversations/group', accessToken, {
+      'title': title,
+      'memberIds': memberIds,
+    });
+  }
+
+  static Future<Map<String, dynamic>> listConversationMessages({
+    required String accessToken,
+    required String conversationId,
+    int limit = 50,
+    String? before,
+  }) async {
+    final query = <String, String>{'limit': limit.toString()};
+    final normalizedBefore = before?.trim();
+    if (normalizedBefore != null && normalizedBefore.isNotEmpty) {
+      query['before'] = normalizedBefore;
+    }
+
+    final uri = Uri.parse(
+      '$_baseUrl/messages/conversations/$conversationId/messages',
+    ).replace(queryParameters: query);
+
+    final response = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+
+    final data = _decodeJsonMap(response.body);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+    throw _toApiException(response.statusCode, data);
+  }
+
+  static Future<Map<String, dynamic>> sendConversationMessage({
+    required String accessToken,
+    required String conversationId,
+    required String ciphertext,
+    String messageKind = 'text',
+    String algorithm = 'xchacha20poly1305',
+    String? nonce,
+    Map<String, dynamic>? metadata,
+  }) async {
+    return _postWithAuth(
+      '/messages/conversations/$conversationId/messages',
+      accessToken,
+      {
+        'messageKind': messageKind,
+        'ciphertext': ciphertext,
+        'algorithm': algorithm,
+        'nonce': nonce,
+        'metadata': metadata == null ? null : jsonEncode(metadata),
+      },
+    );
+  }
+
+  static Future<Map<String, dynamic>> markConversationRead({
+    required String accessToken,
+    required String conversationId,
+  }) async {
+    return _postWithAuth(
+      '/messages/conversations/$conversationId/read',
+      accessToken,
+      const <String, dynamic>{},
+    );
+  }
+
+  static Future<Map<String, dynamic>> updateConversationMessage({
+    required String accessToken,
+    required String conversationId,
+    required String messageId,
+    required String ciphertext,
+  }) async {
+    return _patch(
+      '/messages/conversations/$conversationId/messages/$messageId',
+      accessToken,
+      {'ciphertext': ciphertext},
+    );
+  }
+
+  static Future<Map<String, dynamic>> reactToConversationMessage({
+    required String accessToken,
+    required String conversationId,
+    required String messageId,
+    required String emoji,
+  }) async {
+    return _postWithAuth(
+      '/messages/conversations/$conversationId/messages/$messageId/reaction',
+      accessToken,
+      {'emoji': emoji},
+    );
+  }
+
+  static Future<Map<String, dynamic>> deleteConversationMessage({
+    required String accessToken,
+    required String conversationId,
+    required String messageId,
+    String scope = 'me',
+  }) async {
+    final uri = Uri.parse(
+      '$_baseUrl/messages/conversations/$conversationId/messages/$messageId',
+    ).replace(queryParameters: {'scope': scope});
+
+    final response = await http.delete(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    final data = _decodeJsonMap(response.body);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+    throw _toApiException(response.statusCode, data);
+  }
+
+  static Future<Map<String, dynamic>> followUser({
+    required String accessToken,
+    required String userId,
+  }) async {
+    return _postWithAuth('/social/follow/$userId', accessToken, const <String, dynamic>{});
+  }
+
+  static Future<Map<String, dynamic>> unfollowUser({
+    required String accessToken,
+    required String userId,
+  }) async {
+    return _delete('/social/follow/$userId', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> listFollowers({
+    required String accessToken,
+    String? userId,
+  }) async {
+    if (userId != null && userId.trim().isNotEmpty) {
+      return _get('/social/users/$userId/followers', accessToken);
+    }
+    return _get('/social/followers', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> listFollowing({
+    required String accessToken,
+    String? userId,
+  }) async {
+    if (userId != null && userId.trim().isNotEmpty) {
+      return _get('/social/users/$userId/following', accessToken);
+    }
+    return _get('/social/following', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> sendContactRequest({
+    required String accessToken,
+    required String userId,
+  }) async {
+    return _postWithAuth('/social/contacts/request/$userId', accessToken, const <String, dynamic>{});
+  }
+
+  static Future<Map<String, dynamic>> acceptContactRequest({
+    required String accessToken,
+    required String userId,
+  }) async {
+    return _postWithAuth('/social/contacts/accept/$userId', accessToken, const <String, dynamic>{});
+  }
+
+  static Future<Map<String, dynamic>> rejectContactRequest({
+    required String accessToken,
+    required String userId,
+  }) async {
+    return _postWithAuth('/social/contacts/reject/$userId', accessToken, const <String, dynamic>{});
+  }
+
+  static Future<Map<String, dynamic>> removeContact({
+    required String accessToken,
+    required String userId,
+  }) async {
+    return _delete('/social/contacts/$userId', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> listContacts({
+    required String accessToken,
+    String? userId,
+  }) async {
+    if (userId != null && userId.trim().isNotEmpty) {
+      return _get('/social/users/$userId/contacts', accessToken);
+    }
+    return _get('/social/contacts', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> listContactRequests({
+    required String accessToken,
+  }) async {
+    return _get('/social/contacts/requests', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> getSocialSummary({
+    required String accessToken,
+    required String userId,
+  }) async {
+    return _get('/social/users/$userId/summary', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> getPrivacySettings({
+    required String accessToken,
+  }) async {
+    return _get('/social/privacy', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> updatePrivacySettings({
+    required String accessToken,
+    String? messagesPrivacy,
+    bool? showFollowerList,
+    bool? showContactList,
+  }) async {
+    return _patch('/social/privacy', accessToken, {
+      'messagesPrivacy': messagesPrivacy,
+      'showFollowerList': showFollowerList,
+      'showContactList': showContactList,
+    });
+  }
+
+  static Future<Map<String, dynamic>> listSocialNotifications({
+    required String accessToken,
+  }) async {
+    return _get('/social/notifications', accessToken);
+  }
+
+  static Future<Map<String, dynamic>> markAllSocialNotificationsRead({
+    required String accessToken,
+  }) async {
+    return _postWithAuth(
+      '/social/notifications/read',
+      accessToken,
+      const <String, dynamic>{},
+    );
   }
 
   static Future<Map<String, dynamic>> listAuditLogs({
@@ -542,6 +857,9 @@ class ApiService {
 
   static Future<Map<String, dynamic>> createMarketplaceActivity({
     required String accessToken,
+    String section = 'services',
+    required String categoryKey,
+    String? subcategoryKey,
     required String title,
     required String description,
     required double amountRon,
@@ -557,6 +875,9 @@ class ApiService {
     bool mealIncluded = false,
   }) async {
     return _postWithAuth('/activities', accessToken, {
+      'section': section,
+      'categoryKey': categoryKey,
+      'subcategoryKey': subcategoryKey,
       'title': title,
       'description': description,
       'amountRon': amountRon,
@@ -576,6 +897,9 @@ class ApiService {
   static Future<Map<String, dynamic>> updateMarketplaceActivity({
     required String accessToken,
     required String activityId,
+    String? section,
+    String? categoryKey,
+    String? subcategoryKey,
     String? title,
     String? description,
     double? amountRon,
@@ -591,6 +915,9 @@ class ApiService {
     bool? mealIncluded,
   }) async {
     return _patch('/activities/$activityId', accessToken, {
+      'section': section,
+      'categoryKey': categoryKey,
+      'subcategoryKey': subcategoryKey,
       'title': title,
       'description': description,
       'amountRon': amountRon,

@@ -45,6 +45,11 @@ export class ActivitiesController {
     return this.activitiesService.listNotifications(req.user!.id, req.auditContext);
   }
 
+  @Post('notifications/read')
+  async markNotificationsRead(@Req() req: AuthenticatedRequest) {
+    return this.activitiesService.markNotificationsRead(req.user!.id, req.auditContext);
+  }
+
   @Post()
   async create(
     @Req() req: AuthenticatedRequest,

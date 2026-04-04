@@ -14,6 +14,7 @@ extension _SettingsEditProfilePanel on _SettingsPageState {
             'account',
             'location',
             'profile',
+            'privacy',
             'experience',
             'skills',
             'education',
@@ -21,7 +22,7 @@ extension _SettingsEditProfilePanel on _SettingsPageState {
             'social',
             'attachments',
           ]
-        : const ['account', 'company', 'hr'];
+        : const ['account', 'privacy', 'company', 'hr'];
     final selectedSectionId = _selectedEditProfileSubcategory;
 
     bool showSection(String id) {
@@ -312,6 +313,13 @@ extension _SettingsEditProfilePanel on _SettingsPageState {
                 ),
               ],
             ),
+            if (showSection('privacy')) const SizedBox(height: 16),
+            if (showSection('privacy'))
+              _groupedSection(
+                id: 'privacy',
+                title: t(widget.lang, 'settingsPrivacyTitle'),
+                children: _buildPrivacyPanelFields(),
+              ),
             if (showSection('experience')) const SizedBox(height: 16),
             if (showSection('experience')) _groupedSection(
               id: 'experience',
@@ -394,6 +402,13 @@ extension _SettingsEditProfilePanel on _SettingsPageState {
           ],
 
           if (accountType == 'company') ...[
+            if (showSection('privacy')) const SizedBox(height: 16),
+            if (showSection('privacy'))
+              _groupedSection(
+                id: 'privacy',
+                title: t(widget.lang, 'settingsPrivacyTitle'),
+                children: _buildPrivacyPanelFields(),
+              ),
             if (showSection('company')) const SizedBox(height: 16),
             if (showSection('company')) _groupedSection(
               id: 'company',

@@ -13,6 +13,17 @@ import {
 } from 'class-validator';
 
 export class CreateActivityDto {
+  @IsOptional()
+  @IsIn(['services'])
+  section?: 'services';
+
+  @IsString()
+  categoryKey!: string;
+
+  @IsOptional()
+  @IsString()
+  subcategoryKey?: string;
+
   @IsString()
   title!: string;
 

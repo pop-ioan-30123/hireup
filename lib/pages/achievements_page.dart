@@ -148,12 +148,12 @@ class _AchievementsPageState extends State<AchievementsPage> {
 
   String _badgeStatusLabel(String status) {
     if (status == 'unlocked') {
-      return t(widget.lang, 'achievementStatusUnlocked');
+      return t(currentLang, 'achievementStatusUnlocked');
     }
     if (status == 'unavailable') {
-      return t(widget.lang, 'achievementStatusUnavailable');
+      return t(currentLang, 'achievementStatusUnavailable');
     }
-    return t(widget.lang, 'achievementStatusAvailable');
+    return t(currentLang, 'achievementStatusAvailable');
   }
 
   @override

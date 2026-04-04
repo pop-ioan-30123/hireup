@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/romania_locations.dart';
 import '../core/texts.dart';
 import '../services/api_service.dart';
 import '../services/secure_storage.dart';
@@ -46,6 +47,11 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
   final List<_ActivityNotification> _notificationTable =
       <_ActivityNotification>[];
   final Map<String, _AssignedProvider> _assignedProviderByActivity = {};
+
+  _ServicesFlowStage _flowStage = _ServicesFlowStage.location;
+  String? _selectedCounty;
+  String? _selectedCity;
+  String _selectedCategoryKey = _allCategoriesKey;
 
   static const _DualRating _myPostedActivitiesRating = _DualRating(
     labelKey: 'asPayer',
@@ -115,6 +121,19 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
     }
   }
 
+  String _normalizeCategoryKey(String? value) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return _fallbackCategoryKey;
+    }
+
+    if (_serviceCategories.any((category) => category.key == normalized)) {
+      return normalized;
+    }
+
+    return _fallbackCategoryKey;
+  }
+
   Future<void> _refreshActivitiesFromApi({bool silent = false}) async {
     final token = await SecureStorage.read('access_token');
     if (token == null || token.isEmpty) return;
@@ -128,6 +147,12 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
         accessToken: token,
         filter: _apiFilter(),
         sort: _apiSort(),
+        section: 'services',
+        county: _selectedCounty,
+        city: _selectedCity,
+        categoryKey: _selectedCategoryKey == _allCategoriesKey
+            ? null
+            : _selectedCategoryKey,
       );
       final mine = await ApiService.listMyActivities(accessToken: token);
       final upcoming = await ApiService.listUpcomingActivities(
@@ -242,6 +267,9 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
   _ActivityItem _activityFromApi(Map<String, dynamic> raw) {
     final owner = raw['owner'] as Map<String, dynamic>?;
 
+    final categoryCandidate =
+        raw['categoryKey']?.toString() ?? raw['category']?.toString();
+
     return _ActivityItem(
       id: raw['id']?.toString() ?? '',
       title: raw['title']?.toString() ?? '',
@@ -265,6 +293,9 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
       isPostedByCurrentUser: raw['isPostedByCurrentUser'] == true,
       status: raw['status']?.toString(),
       closeReason: raw['closeReason']?.toString(),
+      section: raw['section']?.toString() ?? 'services',
+      categoryKey: _normalizeCategoryKey(categoryCandidate),
+      subcategoryKey: raw['subcategoryKey']?.toString(),
     );
   }
 
@@ -313,6 +344,18 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
     });
 
     final filtered = openItems.where((item) {
+      final matchesLocation =
+          _selectedCounty == null ||
+          _selectedCity == null ||
+          (item.county.toLowerCase() == _selectedCounty!.toLowerCase() &&
+              item.city.toLowerCase() == _selectedCity!.toLowerCase());
+      if (!matchesLocation) return false;
+
+      final matchesCategory =
+          _selectedCategoryKey == _allCategoriesKey ||
+          item.categoryKey == _selectedCategoryKey;
+      if (!matchesCategory) return false;
+
       switch (_selectedFilter) {
         case _ActivityFilter.all:
           return true;
@@ -430,6 +473,9 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
       await ApiService.updateMarketplaceActivity(
         accessToken: token,
         activityId: updated.id,
+        section: updated.section,
+        categoryKey: updated.categoryKey,
+        subcategoryKey: updated.subcategoryKey,
         title: updated.title,
         description: updated.description,
         amountRon: updated.amountRon,
@@ -460,6 +506,9 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
     try {
       await ApiService.createMarketplaceActivity(
         accessToken: token,
+        section: created.section,
+        categoryKey: created.categoryKey,
+        subcategoryKey: created.subcategoryKey,
         title: created.title,
         description: created.description,
         amountRon: created.amountRon,
@@ -481,14 +530,28 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
     }
   }
 
+  Future<void> _openAddActivityFormGuarded() async {
+    if (_selectedCounty == null || _selectedCity == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecteaza mai intai judetul si localitatea.'),
+        ),
+      );
+      return;
+    }
+
+    await _openAddActivityForm();
+  }
+
   Future<_ActivityItem?> _showAddActivityDialog() async {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     final amountController = TextEditingController();
     final durationController = TextEditingController(text: '2');
-    final countryController = TextEditingController(text: 'România');
-    final countyController = TextEditingController();
-    final cityController = TextEditingController();
+    final countryController = TextEditingController(text: 'Romania');
+    final countyController = TextEditingController(text: _selectedCounty ?? '');
+    final cityController = TextEditingController(text: _selectedCity ?? '');
 
     var dueAt = DateTime.now().add(const Duration(days: 1));
     var startTime = TimeOfDay.fromDateTime(dueAt);
@@ -496,6 +559,10 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
     var recurrencePattern = _RecurrencePattern.weekly;
     final selectedWeekdays = <int>{DateTime.now().weekday};
     var mealIncluded = false;
+    String? selectedCategoryKey = _selectedCategoryKey == _allCategoriesKey
+        ? null
+        : _selectedCategoryKey;
+    String? selectedSubcategoryKey;
 
     final approved = await showDialog<bool>(
       context: context,
@@ -543,15 +610,71 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                       ),
                     TextField(
                       controller: countryController,
+                      readOnly: true,
                       decoration: InputDecoration(labelText: _tr('country')),
                     ),
                     TextField(
                       controller: countyController,
+                      readOnly: true,
                       decoration: InputDecoration(labelText: _tr('county')),
                     ),
                     TextField(
                       controller: cityController,
+                      readOnly: true,
                       decoration: InputDecoration(labelText: _tr('city')),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_selectedCategoryKey == _allCategoriesKey)
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedCategoryKey,
+                        decoration: const InputDecoration(
+                          labelText: 'Categoria serviciului',
+                        ),
+                        items: _serviceCategories
+                            .where(
+                              (category) => category.key != _allCategoriesKey,
+                            )
+                            .map(
+                              (category) => DropdownMenuItem<String>(
+                                value: category.key,
+                                child: Text(category.label),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedCategoryKey = value;
+                            selectedSubcategoryKey = null;
+                          });
+                        },
+                      )
+                    else
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Categoria serviciului',
+                        ),
+                        child: Text(
+                          _serviceCategoryLabel(selectedCategoryKey),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedSubcategoryKey,
+                      decoration: const InputDecoration(
+                        labelText: 'Subcategorie',
+                      ),
+                      items: _subcategoriesForCategory(selectedCategoryKey)
+                          .map(
+                            (subcategory) => DropdownMenuItem<String>(
+                              value: subcategory.key,
+                              child: Text(subcategory.label),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        setDialogState(() => selectedSubcategoryKey = value);
+                      },
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -725,6 +848,8 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
       startTime.minute,
     );
 
+    final resolvedCategoryKey = _normalizeCategoryKey(selectedCategoryKey);
+
     final recurrence = switch (recurrencePattern) {
       _RecurrencePattern.daily => _tr('recurrenceDaily'),
       _RecurrencePattern.weekly => _tr('recurrenceWeekly'),
@@ -750,6 +875,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
         country.isEmpty ||
         county.isEmpty ||
         city.isEmpty ||
+        resolvedCategoryKey == _fallbackCategoryKey ||
         (isRecurring && recurrence.isEmpty) ||
         startAt.isBefore(DateTime.now())) {
       if (!mounted) return null;
@@ -778,6 +904,492 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
       city: city,
       durationHours: duration,
       isPostedByCurrentUser: true,
+      section: 'services',
+      categoryKey: resolvedCategoryKey,
+      subcategoryKey: selectedSubcategoryKey,
+    );
+  }
+
+  void _onCountySelectedFromMap(String county) {
+    _selectedCounty = county;
+    final localities = RomaniaLocations.localitiesForCounty(county);
+    _selectedCity = localities.isNotEmpty ? localities.first : null;
+    setState(() {});
+    unawaited(_openLocalityPicker(county));
+  }
+
+  Future<void> _openLocalityPicker(String county) async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final allLocalities = RomaniaLocations.localitiesForCounty(county);
+        var filtered = List<String>.from(allLocalities);
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.75,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Alege localitatea in judetul $county',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search_rounded),
+                          hintText: 'Cauta oras sau comuna',
+                        ),
+                        onChanged: (value) {
+                          final query = value.trim().toLowerCase();
+                          setModalState(() {
+                            filtered = allLocalities
+                                .where(
+                                  (locality) =>
+                                      locality.toLowerCase().contains(query),
+                                )
+                                .toList(growable: false);
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) =>
+                              const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final locality = filtered[index];
+                            return ListTile(
+                              leading: const Icon(Icons.place_outlined),
+                              title: Text(locality),
+                              onTap: () => Navigator.of(context).pop(locality),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (selected == null || !mounted) return;
+    setState(() {
+      _selectedCounty = county;
+      _selectedCity = selected;
+      _flowStage = _ServicesFlowStage.categories;
+    });
+  }
+
+  Widget _locationSelectionSection(double horizontalPadding) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          12,
+          horizontalPadding,
+          0,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: scheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outline.withValues(alpha: 0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '1) Alege locatia ta',
+                style: TextStyle(
+                  color: scheme.onSurface,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Apasa pe un judet de pe harta, apoi selecteaza localitatea/comuna.',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              _countyMapWidget(),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _locationBadge(
+                    icon: Icons.map_outlined,
+                    text: _selectedCounty == null
+                        ? 'Judet nesetat'
+                        : 'Judet: $_selectedCounty',
+                  ),
+                  _locationBadge(
+                    icon: Icons.location_city_outlined,
+                    text: _selectedCity == null
+                        ? 'Localitate nesetata'
+                        : 'Localitate: $_selectedCity',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton.icon(
+                  onPressed: (_selectedCounty != null && _selectedCity != null)
+                      ? () => setState(
+                          () => _flowStage = _ServicesFlowStage.categories,
+                        )
+                      : null,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Continua spre categorii'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _countyMapWidget() {
+    final scheme = Theme.of(context).colorScheme;
+    final width = MediaQuery.of(context).size.width;
+    final isPhone = width < 760;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(
+          colors: [
+            scheme.primary.withValues(alpha: 0.1),
+            scheme.secondary.withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: AspectRatio(
+        aspectRatio: 1.35,
+        child: InteractiveViewer(
+          minScale: 0.9,
+          maxScale: 2.2,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tileWidth = isPhone ? 76.0 : 96.0;
+              final tileHeight = isPhone ? 28.0 : 32.0;
+
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.surface.withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  for (final county in RomaniaLocations.counties)
+                    Builder(
+                      builder: (context) {
+                        final anchor = _countyAnchor(county);
+                        final selected = county == _selectedCounty;
+                        final left =
+                            anchor.dx * (constraints.maxWidth - tileWidth);
+                        final top =
+                            anchor.dy * (constraints.maxHeight - tileHeight);
+
+                        return Positioned(
+                          left: left,
+                          top: top,
+                          child: Tooltip(
+                            message: county,
+                            child: InkWell(
+                              onTap: () => _onCountySelectedFromMap(county),
+                              borderRadius: BorderRadius.circular(8),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: tileWidth,
+                                height: tileHeight,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? scheme.primary
+                                      : scheme.surface.withValues(alpha: 0.96),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: selected
+                                        ? scheme.primary
+                                        : scheme.outline.withValues(
+                                            alpha: 0.28,
+                                          ),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: scheme.shadow.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    county,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: selected
+                                          ? scheme.onPrimary
+                                          : scheme.onSurface,
+                                      fontSize: isPhone ? 9.6 : 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Offset _countyAnchor(String county) {
+    final anchor = _countyAnchors[county];
+    if (anchor != null) return anchor;
+
+    final index = RomaniaLocations.counties.indexOf(county);
+    final row = index ~/ 7;
+    final col = index % 7;
+    return Offset((col / 7).clamp(0.0, 1.0), (row / 6).clamp(0.0, 1.0));
+  }
+
+  Widget _locationBadge({required IconData icon, required String text}) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: scheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoriesSection(double horizontalPadding) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          12,
+          horizontalPadding,
+          0,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () =>
+                      setState(() => _flowStage = _ServicesFlowStage.location),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: _tr('back'),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '2) Selecteaza categoria de servicii',
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _categoryGrid(),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                onPressed: () =>
+                    setState(() => _flowStage = _ServicesFlowStage.listings),
+                icon: const Icon(Icons.storefront_rounded),
+                label: Text(
+                  _selectedCategoryKey == _allCategoriesKey
+                      ? 'Vezi ofertele din toate categoriile'
+                      : 'Vezi ofertele din ${_serviceCategoryLabel(_selectedCategoryKey)}',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _categoryGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 1200
+            ? 4
+            : width >= 840
+            ? 3
+            : width >= 560
+            ? 2
+            : 1;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _serviceCategories.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.65,
+          ),
+          itemBuilder: (context, index) {
+            final category = _serviceCategories[index];
+            final selected = category.key == _selectedCategoryKey;
+            final scheme = Theme.of(context).colorScheme;
+
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedCategoryKey = category.key;
+                });
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: LinearGradient(
+                    colors: [
+                      category.tint.withValues(alpha: selected ? 0.35 : 0.16),
+                      scheme.surface,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(
+                    color: selected
+                        ? scheme.primary
+                        : scheme.outline.withValues(alpha: 0.22),
+                    width: selected ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: category.tint.withValues(alpha: 0.28),
+                      child: Icon(category.icon, color: scheme.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        category.label,
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _listingHeaderSection(double horizontalPadding) {
+    final county = _selectedCounty ?? '-';
+    final city = _selectedCity ?? '-';
+    final categoryLabel = _serviceCategoryLabel(_selectedCategoryKey);
+
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          12,
+          horizontalPadding,
+          0,
+        ),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _locationBadge(icon: Icons.map_outlined, text: county),
+            _locationBadge(icon: Icons.place_outlined, text: city),
+            _locationBadge(icon: Icons.category_outlined, text: categoryLabel),
+            OutlinedButton.icon(
+              onPressed: () =>
+                  setState(() => _flowStage = _ServicesFlowStage.categories),
+              icon: const Icon(Icons.tune_rounded),
+              label: const Text('Schimba selectia'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -878,23 +1490,30 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                   ),
                   sliver: SliverToBoxAdapter(child: _heroSection()),
                 ),
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _StickyHeaderDelegate(
-                    height: _controlSectionHeight(constraints.maxWidth),
-                    child: Container(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      padding: EdgeInsets.fromLTRB(
-                        horizontalPadding,
-                        14,
-                        horizontalPadding,
-                        8,
+                if (_flowStage == _ServicesFlowStage.location)
+                  _locationSelectionSection(horizontalPadding),
+                if (_flowStage == _ServicesFlowStage.categories)
+                  _categoriesSection(horizontalPadding),
+                if (_flowStage == _ServicesFlowStage.listings)
+                  _listingHeaderSection(horizontalPadding),
+                if (_flowStage == _ServicesFlowStage.listings)
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _StickyHeaderDelegate(
+                      height: _controlSectionHeight(constraints.maxWidth),
+                      child: Container(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        padding: EdgeInsets.fromLTRB(
+                          horizontalPadding,
+                          14,
+                          horizontalPadding,
+                          8,
+                        ),
+                        child: _controlSection(constraints.maxWidth),
                       ),
-                      child: _controlSection(constraints.maxWidth),
                     ),
                   ),
-                ),
-                if (_isLoading)
+                if (_flowStage == _ServicesFlowStage.listings && _isLoading)
                   const SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.symmetric(
@@ -904,7 +1523,9 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                       child: LinearProgressIndicator(minHeight: 2),
                     ),
                   ),
-                if (!_isLoading && activities.isEmpty)
+                if (_flowStage == _ServicesFlowStage.listings &&
+                    !_isLoading &&
+                    activities.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -916,7 +1537,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                       child: _emptyStateCard(),
                     ),
                   )
-                else
+                else if (_flowStage == _ServicesFlowStage.listings)
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(
                       horizontalPadding,
@@ -1011,7 +1632,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: _openAddActivityForm,
+                onPressed: _openAddActivityFormGuarded,
                 icon: const Icon(Icons.add_rounded),
                 label: Text(_tr('addActivity')),
                 style: ElevatedButton.styleFrom(
@@ -1139,7 +1760,7 @@ class _ActivitiesPageState extends State<ActivitiesPage> {
         width: 210,
         height: 46,
         child: ElevatedButton.icon(
-          onPressed: _openAddActivityForm,
+          onPressed: _openAddActivityFormGuarded,
           icon: const Icon(Icons.add_rounded),
           label: Text(_tr('addActivity'), overflow: TextOverflow.ellipsis),
           style: ElevatedButton.styleFrom(
@@ -1594,6 +2215,26 @@ class _ActivityAnnouncementTileState extends State<_ActivityAnnouncementTile> {
           ],
         ),
         const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _infoBadge(
+              icon: Icons.category_rounded,
+              label: _serviceCategoryLabel(widget.item.categoryKey),
+            ),
+            if (widget.item.subcategoryKey != null &&
+                widget.item.subcategoryKey!.isNotEmpty)
+              _infoBadge(
+                icon: Icons.label_outline_rounded,
+                label: _serviceSubcategoryLabel(
+                  widget.item.categoryKey,
+                  widget.item.subcategoryKey,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
         Row(
           children: [
             Icon(
@@ -1850,6 +2491,289 @@ enum _SortOption { postedAsc, postedDesc, dueAsc, dueDesc }
 
 enum _RecurrencePattern { daily, weekly, biWeekly, monthly, byDays }
 
+enum _ServicesFlowStage { location, categories, listings }
+
+const String _allCategoriesKey = 'all_categories';
+const String _fallbackCategoryKey = 'other_services';
+
+const Map<String, Offset> _countyAnchors = {
+  'Satu Mare': Offset(0.12, 0.06),
+  'Maramureș': Offset(0.28, 0.05),
+  'Suceava': Offset(0.54, 0.07),
+  'Botoșani': Offset(0.73, 0.10),
+  'Bistrița-Năsăud': Offset(0.40, 0.15),
+  'Sălaj': Offset(0.21, 0.18),
+  'Bihor': Offset(0.08, 0.24),
+  'Cluj': Offset(0.30, 0.24),
+  'Mureș': Offset(0.45, 0.24),
+  'Harghita': Offset(0.58, 0.22),
+  'Neamț': Offset(0.68, 0.22),
+  'Iași': Offset(0.79, 0.23),
+  'Arad': Offset(0.05, 0.36),
+  'Alba': Offset(0.25, 0.34),
+  'Sibiu': Offset(0.35, 0.36),
+  'Brașov': Offset(0.50, 0.36),
+  'Covasna': Offset(0.60, 0.35),
+  'Bacău': Offset(0.69, 0.34),
+  'Vaslui': Offset(0.80, 0.34),
+  'Timiș': Offset(0.03, 0.49),
+  'Hunedoara': Offset(0.18, 0.46),
+  'Caraș-Severin': Offset(0.08, 0.60),
+  'Gorj': Offset(0.28, 0.55),
+  'Vâlcea': Offset(0.38, 0.53),
+  'Argeș': Offset(0.50, 0.51),
+  'Dâmbovița': Offset(0.57, 0.54),
+  'Prahova': Offset(0.62, 0.48),
+  'Vrancea': Offset(0.73, 0.46),
+  'Galați': Offset(0.84, 0.49),
+  'Mehedinți': Offset(0.16, 0.66),
+  'Dolj': Offset(0.27, 0.67),
+  'Olt': Offset(0.40, 0.66),
+  'Teleorman': Offset(0.50, 0.70),
+  'Giurgiu': Offset(0.58, 0.73),
+  'Ilfov': Offset(0.62, 0.65),
+  'București': Offset(0.67, 0.67),
+  'Ialomița': Offset(0.72, 0.64),
+  'Brăila': Offset(0.80, 0.60),
+  'Buzău': Offset(0.70, 0.56),
+  'Călărași': Offset(0.68, 0.75),
+  'Constanța': Offset(0.89, 0.73),
+  'Tulcea': Offset(0.92, 0.56),
+};
+
+class _ServiceCategory {
+  final String key;
+  final String label;
+  final IconData icon;
+  final Color tint;
+  final List<_ServiceSubcategory> subcategories;
+
+  const _ServiceCategory({
+    required this.key,
+    required this.label,
+    required this.icon,
+    required this.tint,
+    this.subcategories = const <_ServiceSubcategory>[],
+  });
+}
+
+class _ServiceSubcategory {
+  final String key;
+  final String label;
+
+  const _ServiceSubcategory({required this.key, required this.label});
+}
+
+const List<_ServiceCategory> _serviceCategories = [
+  _ServiceCategory(
+    key: _allCategoriesKey,
+    label: 'Toate categoriile',
+    icon: Icons.apps_rounded,
+    tint: Color(0xFF7F8C8D),
+  ),
+  _ServiceCategory(
+    key: 'home_repairs',
+    label: 'Mesteri si reparatii',
+    icon: Icons.handyman_rounded,
+    tint: Color(0xFF3867D6),
+    subcategories: [
+      _ServiceSubcategory(key: 'electrice', label: 'Electrice'),
+      _ServiceSubcategory(key: 'instalatii', label: 'Instalatii'),
+      _ServiceSubcategory(key: 'zugravit', label: 'Zugravit'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'events_entertainment',
+    label: 'Evenimente si entertainment',
+    icon: Icons.celebration_rounded,
+    tint: Color(0xFF20BF6B),
+    subcategories: [
+      _ServiceSubcategory(key: 'dj', label: 'DJ'),
+      _ServiceSubcategory(key: 'mc', label: 'MC / Animator'),
+      _ServiceSubcategory(key: 'show', label: 'Show tematic'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'babysitting_childcare',
+    label: 'Babysitting si ingrijire copii',
+    icon: Icons.child_friendly_rounded,
+    tint: Color(0xFFEB3B5A),
+    subcategories: [
+      _ServiceSubcategory(key: 'ocazional', label: 'Ocazional'),
+      _ServiceSubcategory(key: 'program_fix', label: 'Program fix'),
+      _ServiceSubcategory(key: 'dupa_scoala', label: 'After-school'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'event_planning',
+    label: 'Event planning si organizare',
+    icon: Icons.event_note_rounded,
+    tint: Color(0xFFF7B731),
+    subcategories: [
+      _ServiceSubcategory(key: 'nunti', label: 'Nunti'),
+      _ServiceSubcategory(key: 'botez', label: 'Botez'),
+      _ServiceSubcategory(key: 'corporate', label: 'Corporate'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'photo_video',
+    label: 'Foto video',
+    icon: Icons.photo_camera_back_rounded,
+    tint: Color(0xFF8854D0),
+    subcategories: [
+      _ServiceSubcategory(key: 'fotograf', label: 'Fotograf'),
+      _ServiceSubcategory(key: 'videograf', label: 'Videograf'),
+      _ServiceSubcategory(key: 'editare', label: 'Editare media'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'local_artists',
+    label: 'Artisti locali',
+    icon: Icons.music_note_rounded,
+    tint: Color(0xFF0FB9B1),
+    subcategories: [
+      _ServiceSubcategory(key: 'solist', label: 'Solist'),
+      _ServiceSubcategory(key: 'formatie', label: 'Formatie'),
+      _ServiceSubcategory(key: 'instrumentist', label: 'Instrumentist'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'tutoring_courses',
+    label: 'Meditatii si cursuri',
+    icon: Icons.school_rounded,
+    tint: Color(0xFF2D98DA),
+    subcategories: [
+      _ServiceSubcategory(key: 'matematica', label: 'Matematica'),
+      _ServiceSubcategory(key: 'limbi_straine', label: 'Limbi straine'),
+      _ServiceSubcategory(key: 'programare', label: 'Programare'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'culinary_catering',
+    label: 'Culinar si catering',
+    icon: Icons.restaurant_menu_rounded,
+    tint: Color(0xFFFA8231),
+    subcategories: [
+      _ServiceSubcategory(
+        key: 'catering_eveniment',
+        label: 'Catering eveniment',
+      ),
+      _ServiceSubcategory(key: 'chef_acasa', label: 'Chef la domiciliu'),
+      _ServiceSubcategory(key: 'deserturi', label: 'Deserturi artizanale'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'beauty_personal_care',
+    label: 'Beauty si ingrijire personala',
+    icon: Icons.spa_rounded,
+    tint: Color(0xFFFF6B81),
+    subcategories: [
+      _ServiceSubcategory(key: 'makeup', label: 'Make-up'),
+      _ServiceSubcategory(key: 'coafor', label: 'Coafor'),
+      _ServiceSubcategory(key: 'manichiura', label: 'Manichiura'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'cleaning_maintenance',
+    label: 'Curatenie si intretinere',
+    icon: Icons.cleaning_services_rounded,
+    tint: Color(0xFF45AAF2),
+    subcategories: [
+      _ServiceSubcategory(key: 'residential', label: 'Curatenie rezidentiala'),
+      _ServiceSubcategory(key: 'birouri', label: 'Curatenie birouri'),
+      _ServiceSubcategory(key: 'after_constructor', label: 'Dupa renovare'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'transport_moving',
+    label: 'Transport si mutari',
+    icon: Icons.local_shipping_rounded,
+    tint: Color(0xFF4B6584),
+    subcategories: [
+      _ServiceSubcategory(key: 'mutari', label: 'Mutari locuinta'),
+      _ServiceSubcategory(key: 'livrare', label: 'Livrari rapide'),
+      _ServiceSubcategory(
+        key: 'transport_persoane',
+        label: 'Transport persoane',
+      ),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'it_digital_services',
+    label: 'IT si servicii digitale',
+    icon: Icons.computer_rounded,
+    tint: Color(0xFF26DE81),
+    subcategories: [
+      _ServiceSubcategory(key: 'web', label: 'Website / Magazin online'),
+      _ServiceSubcategory(key: 'support', label: 'Suport tehnic'),
+      _ServiceSubcategory(key: 'design', label: 'Design grafic'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'health_wellness',
+    label: 'Sanatate si wellness',
+    icon: Icons.health_and_safety_rounded,
+    tint: Color(0xFF2ECC71),
+    subcategories: [
+      _ServiceSubcategory(key: 'masaj', label: 'Masaj'),
+      _ServiceSubcategory(key: 'kineto', label: 'Kinetoterapie'),
+      _ServiceSubcategory(key: 'fitness', label: 'Antrenor personal'),
+    ],
+  ),
+  _ServiceCategory(
+    key: 'pet_services',
+    label: 'Servicii pentru animale',
+    icon: Icons.pets_rounded,
+    tint: Color(0xFF8E44AD),
+    subcategories: [
+      _ServiceSubcategory(key: 'pet_sitting', label: 'Pet sitting'),
+      _ServiceSubcategory(key: 'grooming', label: 'Grooming'),
+      _ServiceSubcategory(key: 'pet_transport', label: 'Transport animale'),
+    ],
+  ),
+  _ServiceCategory(
+    key: _fallbackCategoryKey,
+    label: 'Alte servicii',
+    icon: Icons.more_horiz_rounded,
+    tint: Color(0xFF95A5A6),
+    subcategories: [_ServiceSubcategory(key: 'diverse', label: 'Diverse')],
+  ),
+];
+
+String _serviceCategoryLabel(String? categoryKey) {
+  final key = categoryKey ?? _fallbackCategoryKey;
+  final match = _serviceCategories.firstWhere(
+    (category) => category.key == key,
+    orElse: () => _serviceCategories.last,
+  );
+  return match.label;
+}
+
+List<_ServiceSubcategory> _subcategoriesForCategory(String? categoryKey) {
+  if (categoryKey == null || categoryKey == _allCategoriesKey) {
+    return const [];
+  }
+
+  final match = _serviceCategories.firstWhere(
+    (category) => category.key == categoryKey,
+    orElse: () => _serviceCategories.last,
+  );
+
+  return match.subcategories;
+}
+
+String _serviceSubcategoryLabel(String? categoryKey, String? subcategoryKey) {
+  if (subcategoryKey == null || subcategoryKey.isEmpty) return '';
+
+  final subcategories = _subcategoriesForCategory(categoryKey);
+  for (final subcategory in subcategories) {
+    if (subcategory.key == subcategoryKey) {
+      return subcategory.label;
+    }
+  }
+  return subcategoryKey;
+}
+
 class _DualRating {
   final String labelKey;
   final double rating;
@@ -1900,6 +2824,9 @@ class _ActivityItem {
   final bool isPostedByCurrentUser;
   final String? status;
   final String? closeReason;
+  final String section;
+  final String categoryKey;
+  final String? subcategoryKey;
 
   const _ActivityItem({
     required this.id,
@@ -1921,6 +2848,9 @@ class _ActivityItem {
     required this.isPostedByCurrentUser,
     this.status,
     this.closeReason,
+    this.section = 'services',
+    this.categoryKey = _fallbackCategoryKey,
+    this.subcategoryKey,
   });
 
   _ActivityItem copyWith({
@@ -1932,6 +2862,9 @@ class _ActivityItem {
     DateTime? dueAt,
     String? status,
     String? closeReason,
+    String? section,
+    String? categoryKey,
+    String? subcategoryKey,
   }) {
     return _ActivityItem(
       id: id,
@@ -1953,6 +2886,9 @@ class _ActivityItem {
       isPostedByCurrentUser: isPostedByCurrentUser,
       status: status ?? this.status,
       closeReason: closeReason ?? this.closeReason,
+      section: section ?? this.section,
+      categoryKey: categoryKey ?? this.categoryKey,
+      subcategoryKey: subcategoryKey ?? this.subcategoryKey,
     );
   }
 }

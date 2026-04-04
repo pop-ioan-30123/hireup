@@ -35,6 +35,8 @@ migrate_working_dir/
 
 # Backend uploads
 /backend/uploads/
+/backend/.env
+/backend/.env.example
 
 # Symbolication related
 app.*.symbols

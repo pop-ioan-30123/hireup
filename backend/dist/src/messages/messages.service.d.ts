@@ -1,0 +1,141 @@
+import { DatabaseService } from '../database/database.service';
+import { AuditSqlContext } from '../database/audit-sql-context';
+import { SocialService } from '../social/social.service';
+import { CreateDmConversationDto } from './dto/create-dm-conversation.dto';
+import { CreateGroupConversationDto } from './dto/create-group-conversation.dto';
+import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
+import { PostMessageDto } from './dto/post-message.dto';
+import { SetMessageReactionDto } from './dto/set-message-reaction.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
+export declare class MessagesService {
+    private readonly db;
+    private readonly socialService;
+    private requestStatusSchemaEnsured;
+    constructor(db: DatabaseService, socialService: SocialService);
+    listConversations(currentUserId: string, auditContext?: AuditSqlContext): Promise<{
+        items: {
+            id: string;
+            type: "dm" | "group";
+            title: string | null;
+            createdByUserId: string;
+            role: "owner" | "admin" | "member";
+            unreadCount: number;
+            requestStatus: "active" | "request";
+            createdAt: string;
+            updatedAt: string;
+            lastMessageAt: string | null;
+            lastMessagePreview: string | null;
+            lastMessageSenderUserId: string | null;
+            participants: Record<string, unknown>[];
+        }[];
+    }>;
+    createDirectConversation(currentUserId: string, payload: CreateDmConversationDto, auditContext?: AuditSqlContext): Promise<{
+        id: string;
+        type: "dm" | "group";
+        title: string | null;
+        createdByUserId: string;
+        role: "owner" | "admin" | "member";
+        unreadCount: number;
+        requestStatus: "active" | "request";
+        createdAt: string;
+        updatedAt: string;
+        lastMessageAt: string | null;
+        lastMessagePreview: string | null;
+        lastMessageSenderUserId: string | null;
+        participants: Record<string, unknown>[];
+    }>;
+    createGroupConversation(currentUserId: string, payload: CreateGroupConversationDto, auditContext?: AuditSqlContext): Promise<{
+        id: string;
+        type: "dm" | "group";
+        title: string | null;
+        createdByUserId: string;
+        role: "owner" | "admin" | "member";
+        unreadCount: number;
+        requestStatus: "active" | "request";
+        createdAt: string;
+        updatedAt: string;
+        lastMessageAt: string | null;
+        lastMessagePreview: string | null;
+        lastMessageSenderUserId: string | null;
+        participants: Record<string, unknown>[];
+    }>;
+    listMessages(currentUserId: string, conversationId: string, query: ListMessagesQueryDto, auditContext?: AuditSqlContext): Promise<{
+        items: {
+            id: string;
+            conversationId: string;
+            senderUserId: string;
+            messageKind: "text" | "system";
+            ciphertext: string;
+            algorithm: string;
+            nonce: string | null;
+            metadata: object;
+            createdAt: string;
+            deliveredAt: string | null;
+            readAt: string | null;
+            editedAt: string | null;
+            deletedAt: string | null;
+        }[];
+        nextBefore: string;
+        hasMore: boolean;
+    }>;
+    postMessage(currentUserId: string, conversationId: string, payload: PostMessageDto, auditContext?: AuditSqlContext): Promise<{
+        id: string;
+        conversationId: string;
+        senderUserId: string;
+        messageKind: "text" | "system";
+        ciphertext: string;
+        algorithm: string;
+        nonce: string | null;
+        metadata: object;
+        createdAt: string;
+        deliveredAt: string | null;
+        readAt: string | null;
+        editedAt: string | null;
+        deletedAt: string | null;
+    }>;
+    updateMessage(currentUserId: string, conversationId: string, messageId: string, payload: UpdateMessageDto, auditContext?: AuditSqlContext): Promise<{
+        id: string;
+        conversationId: string;
+        senderUserId: string;
+        messageKind: "text" | "system";
+        ciphertext: string;
+        algorithm: string;
+        nonce: string | null;
+        metadata: object;
+        createdAt: string;
+        deliveredAt: string | null;
+        readAt: string | null;
+        editedAt: string | null;
+        deletedAt: string | null;
+    }>;
+    setMessageReaction(currentUserId: string, conversationId: string, messageId: string, payload: SetMessageReactionDto, auditContext?: AuditSqlContext): Promise<{
+        id: string;
+        conversationId: string;
+        senderUserId: string;
+        messageKind: "text" | "system";
+        ciphertext: string;
+        algorithm: string;
+        nonce: string | null;
+        metadata: object;
+        createdAt: string;
+        deliveredAt: string | null;
+        readAt: string | null;
+        editedAt: string | null;
+        deletedAt: string | null;
+    }>;
+    deleteMessage(currentUserId: string, conversationId: string, messageId: string, scope: string | undefined, auditContext?: AuditSqlContext): Promise<{
+        ok: boolean;
+        scope: string;
+    }>;
+    markConversationRead(currentUserId: string, conversationId: string, auditContext?: AuditSqlContext): Promise<{
+        ok: boolean;
+    }>;
+    private assertUsersExist;
+    private assertConversationMembership;
+    private getConversationForUser;
+    private ensureRequestStatusSchema;
+    private loadParticipantsByConversation;
+    private mapMessage;
+    private getMessageForConversation;
+    private normalizeMessageMetadata;
+}
